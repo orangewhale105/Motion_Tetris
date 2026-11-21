@@ -1,0 +1,9 @@
+# PyInstaller
+build/
+dist/
+*.spec
+# Python
+__pycache__/
+*.pyc
+# MediaPipeモデル(build_exe_v3.bat が自動ダウンロードする。URLは hand_tetris.py 冒頭を参照)
+*.task
