@@ -20,7 +20,7 @@ GitHub: orangewhale105/Motion_Tetris(Private)。`.task` モデルとビルド成
 - ブランチは当面 `main` のみ。Claude(クラウド)は作業ブランチで変更し、プルリクエストを作って `main` へマージまで行う。
 - コミット前に `python -m py_compile hand_tetris.py` で構文確認。
 - **どのPCでも `start_motion_tetris.bat` をダブルクリック**すれば、最新版の取得(初回はclone、以降はpull)→ ライブラリ・モデルの用意 → 起動まで自動で行う。Dr. Ishida は自宅・職場・外のPCで使うため、手作業のgit操作を求めない。
-  - リポジトリ内に置いた場合はそのフォルダを使う。bat単体で別の場所に置いた場合は `%USERPROFILE%\Motion_Tetris` にcloneする。
+  - リポジトリ内に置いた場合はそのフォルダを使う。bat単体で別の場所に置いた場合は `%USERPROFILE%\Downloads\Motion_Tetris`(ダウンロードフォルダ)にcloneする(Dr. Ishidaの指示)。ダウンロードフォルダ直下に以前のモデル(.task)があればコピーして使う。
   - 新しいPC: GitHubの `start_motion_tetris.bat` のページから「Download raw file」で保存してダブルクリック。必要なのは Git と Python のインストールのみ(初回cloneで GitHub のログイン画面が出る)。
   - pullできない(オフライン・そのPCで変更あり)ときは、手元の版で起動する。
   - 自身の更新で途中停止しないよう、%TEMP% にコピーしてから実行する。`.gitattributes` で `*.bat -text`(CRLFのまま保存)。
@@ -42,7 +42,7 @@ pip install opencv-python mediapipe numpy pygame pillow
 python hand_tetris.py
 ```
 モデル2つを同じフォルダに置く。URLは hand_tetris.py 冒頭のdocstringにある。
-開発PCはWindows、Python 3.13(`C:\Users\user\AppData\Local\Programs\Python\Python313\`、PATH未登録)。作業フォルダは現在 `C:\Users\user\Downloads`。
+開発PCはWindows、Python 3.13(`C:\Users\user\AppData\Local\Programs\Python\Python313\`、PATH未登録)。作業フォルダは `C:\Users\user\Downloads\Motion_Tetris`(GitHub管理)。ダウンロードフォルダ直下の旧 hand_tetris.py は古い版。
 
 ## 操作仕様(現行)
 カメラに全身(股関節〜足首、万歳しても収まる高さ)が映る距離に立つ。
