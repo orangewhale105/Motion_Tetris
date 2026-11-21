@@ -56,7 +56,7 @@ jobs:
           gh release upload "$TAG" dist/HandTetris.exe --clobber
           BODY=$(gh release view "$TAG" --json body -q .body)
           if ! printf '%s' "$BODY" | grep -q 'HandTetris.exe'; then
-            printf '%s\n\n### 実行形式(exe)\n- `HandTetris.exe`: Python の無い Windows の PC 用(Ver %s)。ダブルクリックで起動(初回は起動まで十数秒かかることがあります)。\n- 「Windows によって PC が保護されました」と出たら「詳細情報」→「実行」。\n- 作成日時: %s(日本時間)\n' "$BODY" "$V" "$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')" > notes.md
+            printf '%s\n\n### 実行形式(exe)\n- `HandTetris.exe`: Python の無い Windows の PC 用(Ver %s)。ダブルクリックで起動(初回は起動まで十数秒かかることがあります)。\n- 「Windows によって PC が保護されました」と出たら「詳細情報」→「実行」。\n- 作成日時: %s(日本時間)\n' "$BODY" "$V" "$(date -u -d '+9 hours' '+%Y-%m-%d %H:%M')" > notes.md
             gh release edit "$TAG" --notes-file notes.md
           fi
 # END OF FILE
