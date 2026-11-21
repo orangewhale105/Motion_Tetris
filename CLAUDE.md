@@ -8,6 +8,8 @@
 - Pythonアプリは **1ファイル(hand_tetris.py)** にまとめる。モジュール分割しない。
 - 事実に基づかない推測を足さない。簡潔に。
 - 変更後は必ず `python -m py_compile hand_tetris.py` で構文確認し、実機で確認すべき点は「未確認」と明記する。
+- 通常の仕様変更の成果物は、Python導入済みのPC(Dr. Ishidaの開発PC)で `python hand_tetris.py` として動くコードでよい。exeは作らない。
+- 「実行形式にして」と指示されたときだけ、Python環境のないPC向けのexeも合わせて用意する(ビルドはWindows上で行う。「exe配布」の節を参照)。
 
 ## リポジトリ
 GitHub: orangewhale105/Motion_Tetris(Private)。`.task` モデルとビルド成果物(build/・dist/・*.spec)は .gitignore で除外。
