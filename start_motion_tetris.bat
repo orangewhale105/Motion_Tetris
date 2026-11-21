@@ -8,7 +8,7 @@ rem   1. GitHub から最新版を取得(初回はダウンロード、2回目�
 rem   2. 足りないライブラリとモデルファイルを自動で用意
 rem   3. ゲームを起動
 rem  このファイルだけを別のPCに置いて実行してもよい(そのときは
-rem  %USERPROFILE%\Motion_Tetris にダウンロードする)。
+rem  ダウンロードフォルダの中の Motion_Tetris に入れる)。
 rem ============================================================
 
 rem --- 更新(git pull)でこのファイル自身が書き換わっても止まらないよう、一時コピーから実行する ---
@@ -23,9 +23,9 @@ set "REPO_URL=https://github.com/orangewhale105/Motion_Tetris.git"
 if exist "%HERE%.git" if exist "%HERE%hand_tetris.py" (
     set "REPO=%HERE%"
 ) else (
-    set "REPO=%USERPROFILE%\Motion_Tetris\"
+    set "REPO=%USERPROFILE%\Downloads\Motion_Tetris\"
 )
-if not defined REPO set "REPO=%USERPROFILE%\Motion_Tetris\"
+if not defined REPO set "REPO=%USERPROFILE%\Downloads\Motion_Tetris\"
 
 echo ============================================
 echo  モーションテトリス 起動
@@ -112,6 +112,9 @@ if defined FAILED (
 rem --- [4/5] モデルファイル(GitHubには置いていないので、無ければダウンロード) ---
 echo.
 echo [4/5] モデルファイルを確認しています...
+rem ダウンロードフォルダに以前のモデルがあれば、それを使う
+if not exist hand_landmarker.task if exist "%USERPROFILE%\Downloads\hand_landmarker.task" copy /y "%USERPROFILE%\Downloads\hand_landmarker.task" . > nul
+if not exist pose_landmarker_lite.task if exist "%USERPROFILE%\Downloads\pose_landmarker_lite.task" copy /y "%USERPROFILE%\Downloads\pose_landmarker_lite.task" . > nul
 if not exist hand_landmarker.task (
     echo   hand_landmarker.task をダウンロードします...
     powershell -NoProfile -Command "Invoke-WebRequest -Uri 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task' -OutFile 'hand_landmarker.task'"
