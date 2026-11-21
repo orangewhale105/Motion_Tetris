@@ -37,6 +37,7 @@ GitHub: orangewhale105/Motion_Tetris(2026-11-21 時点で GitHub 上は public �
 | CHANGELOG.md | 変更履歴(新しいものを上に) |
 | tests/test_hand_tetris.py | 自動テスト(`python -m unittest discover tests`。合成データ) |
 | .github/workflows/release.yml | 配布ファイルを Releases に置く |
+| .github/workflows/build_exe.yml | exe を GitHub の Windows で作り、今の版の Releases に置く(手で動かす) |
 | hand_landmarker.task | 手検出モデル(ワイヤーフレーム表示用) |
 | pose_landmarker_lite.task | 姿勢検出モデル(操作・肩角度用) |
 | build_exe_v3.bat | exeビルド用(モデルは自動ダウンロード) |
@@ -109,7 +110,10 @@ python hand_tetris.py
 - 手のピンチ・回内回外・ジャンプによるブロック操作 → 全身操作への仕様変更で廃止(ジャンプはハードドロップを万歳に変更)。ジャンプはゲームスタート用としてのみ再採用(Dr. Ishidaの指示)。
 
 ## exe配布
-ビルドは Python のあるPC(石田先生のPC)で行い、`dist\HandTetris.exe` だけを生徒に配る(Teams等)。生徒側はPythonもモデルも不要。
+**2026-11-21〜: GitHub Actions の Windows で作る**(`.github/workflows/build_exe.yml`、名前「実行形式(exe)を作る」)。Dr. Ishida が「実行形式にして」と指示したときだけ、Claude が workflow_dispatch で動かす(main への取り込みでは自動で作らない)。今の `VERSION` の Releases(`v<VERSION>`)に `HandTetris.exe` を置き、説明文に exe の節を足す。Python 3.12、PyInstaller `--onefile --windowed`、モデル2つを同梱。
+- 直接ダウンロード: https://github.com/orangewhale105/Motion_Tetris/releases/latest/download/HandTetris.exe (最新版に exe を置いたときだけ有効。exe を作った後に新しい版を出すと、その版には exe が無い)
+- 生徒には `HandTetris.exe` だけを配る(Teams等)。生徒側はPythonもモデルも不要。
+- 以下は Dr. Ishida の PC で作る場合(従来の方法):
 ```
 build_exe_v3.bat   # hand_tetris.py と同じフォルダに置いてダブルクリック
 ```
@@ -120,7 +124,7 @@ python -m PyInstaller --noconfirm --clean --onefile --windowed --name HandTetris
 - exe約118MB。初回起動は数秒〜十数秒の見込み。起動を速くするなら `--onedir`。
 - 学校PCのセキュリティで未署名exeが止まる可能性がある。
 - 配布前に、コード変更のたびに再ビルドが必要。
-- Linux環境(クラウド)ではWindows用exeを作れない。ビルドはWindows上で行う。
+- Linux環境(クラウド)ではWindows用exeを作れない。ビルドはWindows上で行う(GitHub Actions の Windows か、Dr. Ishida の PC)。
 
 ## 次の候補(Dr. Ishidaの指示待ち。決定事項ではない)
 - 実機で上記の未確認項目を確認し、しきい値を調整する。

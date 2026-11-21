@@ -13,6 +13,11 @@
    - ダウンロードフォルダに古い `hand_tetris.py` があると `hand_tetris (1).py` になる。古いほうは削除する。
    - ダブルクリックでメモ帳などが開くときは、右クリック →「プログラムから開く」→「Python」。
 
+### Python の無い PC(生徒の PC など)
+- Releases に `HandTetris.exe` がある版では、それをダウンロードしてダブルクリックするだけで動く(Python もモデルも不要)。
+- 直接ダウンロード: https://github.com/orangewhale105/Motion_Tetris/releases/latest/download/HandTetris.exe
+- 「Windows によって PC が保護されました」と出たら「詳細情報」→「実行」。初回は起動まで十数秒かかることがある。
+
 ## 遊び方
 カメラに全身(足首〜万歳した手)が映る距離に立つ。
 
