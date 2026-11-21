@@ -9,17 +9,21 @@
 - 事実に基づかない推測を足さない。簡潔に。
 - 変更後は必ず `python -m py_compile hand_tetris.py` で構文確認し、実機で確認すべき点は「未確認」と明記する。
 - 通常の仕様変更の成果物は、Python導入済みのPC(Dr. Ishidaの開発PC)で `python hand_tetris.py` として動くコードでよい。exeは作らない。
-- 作業の報告には毎回、GitHubでの反映手順(先生のPCでの入手方法: hand_tetris.py の「Download raw file」のリンク)と、ブランチ・コミット・差分(compare)のリンクを付ける。
+- 作業の報告には毎回、GitHubでの反映手順(先生のPCでの入手方法: Releases の最新版ダウンロードのリンク)と、ブランチ・コミット・差分(compare)・Releases のリンクを付ける。
+- 形式は Dr. Ishida の別リポジトリ `orangewhale105/Mind_Navi_M` に合わせる(2026-11-21 の指示): Releases で配布、`VERSION`、`CHANGELOG.md`、`README.md`、`tests/`。
 - 「実行形式にして」と指示されたときだけ、Python環境のないPC向けのexeも合わせて用意する(ビルドはWindows上で行う。「exe配布」の節を参照)。
 
 ## リポジトリ
-GitHub: orangewhale105/Motion_Tetris(Private)。`.task` モデルとビルド成果物(build/・dist/・*.spec)は .gitignore で除外。
+GitHub: orangewhale105/Motion_Tetris(2026-11-21 時点で GitHub 上は public 表示)。`.task` モデルとビルド成果物(build/・dist/・*.spec)は .gitignore で除外。
 
 ### 開発の流れ(GitHubで開発)
 - Claude(クラウド)は作業開始前に `git pull`、作業終了時に必ずコミット・push し、`main` へマージまで行う。Dr. Ishida 側はGit操作をしない。
 - ブランチは当面 `main` のみ。Claude(クラウド)は作業ブランチで変更し、プルリクエストを作って `main` へマージまで行う。
-- コミット前に `python -m py_compile hand_tetris.py` で構文確認。
-- **起動はGitを使わない**(Dr. Ishidaの指示): どのPCでも GitHub の `hand_tetris.py` のページで「Download raw file」→ ダウンロードフォルダに保存 → ダブルクリック。
+- コミット前に `python -m py_compile hand_tetris.py` で構文確認し、`python -m unittest discover tests` を通す。
+- **起動はGitを使わない**(Dr. Ishidaの指示): どのPCでも Releases の最新版の `hand_tetris.py` をダウンロード → ダブルクリック。
+  - 直接ダウンロード: https://github.com/orangewhale105/Motion_Tetris/releases/latest/download/hand_tetris.py
+- **配布(Releases)**: `.github/workflows/release.yml`(名前「配布ファイルを作る」)。main に取り込むと、hand_tetris.py が変わっていれば、構文確認と自動テスト(`tests/`)の後に Releases へ置く。タグは `v<VERSION>`、同じ版をもう一度作るとファイルを差し替える。手で作るときは「Actions」→「配布ファイルを作る」→「Run workflow」。exe はここでは作らない。
+- **版の番号と履歴**: 変更のたびに hand_tetris.py の `VERSION` を上げ、`CHANGELOG.md` の先頭に追記する(Releases の説明文に先頭の節が入る)。
   - `ensure_packages()`: 足りないライブラリを起動時に `pip install`(exe版では行わない)。
   - `ensure_model()`: モデル(.task)が無ければ起動時にダウンロードして hand_tetris.py と同じフォルダに保存(exe版は同梱済み)。
   - 予期しないエラーはメッセージボックスで表示(ダブルクリック起動では画面がすぐ閉じるため)。
@@ -28,7 +32,11 @@ GitHub: orangewhale105/Motion_Tetris(Private)。`.task` モデルとビルド成
 ## ファイル
 | ファイル | 役割 |
 |---|---|
-| hand_tetris.py | 本体(約2090行、単一ファイル) |
+| hand_tetris.py | 本体(約2090行、単一ファイル)。`VERSION` を持つ |
+| README.md | ダウンロードと遊び方 |
+| CHANGELOG.md | 変更履歴(新しいものを上に) |
+| tests/test_hand_tetris.py | 自動テスト(`python -m unittest discover tests`。合成データ) |
+| .github/workflows/release.yml | 配布ファイルを Releases に置く |
 | hand_landmarker.task | 手検出モデル(ワイヤーフレーム表示用) |
 | pose_landmarker_lite.task | 姿勢検出モデル(操作・肩角度用) |
 | build_exe_v3.bat | exeビルド用(モデルは自動ダウンロード) |
