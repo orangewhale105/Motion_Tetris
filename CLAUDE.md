@@ -12,6 +12,12 @@
 ## リポジトリ
 GitHub: orangewhale105/Motion_Tetris(Private)。`.task` モデルとビルド成果物(build/・dist/・*.spec)は .gitignore で除外。
 
+### 開発の流れ(GitHubで開発)
+- 作業開始前に `git pull`、作業終了時に必ずコミットして `git push`(自宅・職場の複数PCで作業するため)。
+- ブランチは当面 `main` のみ。
+- コミット前に `python -m py_compile hand_tetris.py` で構文確認。
+- 初回セットアップ: clone → `pip install opencv-python mediapipe numpy pygame pillow` → モデル2つを同じフォルダに置く(`build_exe_v3.bat` を実行すると自動ダウンロード)→ `python hand_tetris.py`。
+
 ## ファイル
 | ファイル | 役割 |
 |---|---|
