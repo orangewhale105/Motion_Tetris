@@ -17,9 +17,13 @@ GitHub: orangewhale105/Motion_Tetris(Private)。`.task` モデルとビルド成
 
 ### 開発の流れ(GitHubで開発)
 - 作業開始前に `git pull`、作業終了時に必ずコミットして `git push`(自宅・職場の複数PCで作業するため)。
-- ブランチは当面 `main` のみ。
+- ブランチは当面 `main` のみ。Claude(クラウド)は作業ブランチで変更し、プルリクエストを作って `main` へマージまで行う。
 - コミット前に `python -m py_compile hand_tetris.py` で構文確認。
-- 初回セットアップ: clone → `pip install opencv-python mediapipe numpy pygame pillow` → モデル2つを同じフォルダに置く(`build_exe_v3.bat` を実行すると自動ダウンロード)→ `python hand_tetris.py`。
+- **どのPCでも `start_motion_tetris.bat` をダブルクリック**すれば、最新版の取得(初回はclone、以降はpull)→ ライブラリ・モデルの用意 → 起動まで自動で行う。Dr. Ishida は自宅・職場・外のPCで使うため、手作業のgit操作を求めない。
+  - リポジトリ内に置いた場合はそのフォルダを使う。bat単体で別の場所に置いた場合は `%USERPROFILE%\Motion_Tetris` にcloneする。
+  - 新しいPC: GitHubの `start_motion_tetris.bat` のページから「Download raw file」で保存してダブルクリック。必要なのは Git と Python のインストールのみ(初回cloneで GitHub のログイン画面が出る)。
+  - pullできない(オフライン・そのPCで変更あり)ときは、手元の版で起動する。
+  - 自身の更新で途中停止しないよう、%TEMP% にコピーしてから実行する。`.gitattributes` で `*.bat -text`(CRLFのまま保存)。
 
 ## ファイル
 | ファイル | 役割 |
@@ -27,6 +31,7 @@ GitHub: orangewhale105/Motion_Tetris(Private)。`.task` モデルとビルド成
 | hand_tetris.py | 本体(約2020行、単一ファイル) |
 | hand_landmarker.task | 手検出モデル(ワイヤーフレーム表示用) |
 | pose_landmarker_lite.task | 姿勢検出モデル(操作・肩角度用) |
+| start_motion_tetris.bat | 起動用。最新版の取得・ライブラリ/モデルの用意・起動を自動で行う |
 | build_exe_v3.bat | exeビルド用(モデルは自動ダウンロード) |
 
 プロジェクト名は「モーションテトリス」。ファイル名・exe名(HandTetris)・ウィンドウタイトルは旧称のまま。改名するなら hand_tetris.py、bat、HandTetris.spec をまとめて直す。
@@ -88,6 +93,7 @@ python hand_tetris.py
 - **未確認**: 左右ステップ誤認識の修正後の動作、キャリブレーション導入後のスクワット反応、Esc/「×」終了、万歳のハードドロップ。
 - **未確認(2026-11 の演出追加分)**: ジャンプでのスタート、Tポーズでのキャリブレーション、効果音・歓声・拍手の聞こえ方、実機のフレームレート、ランクのしきい値の妥当性。
 - これまでのテストは、合成した姿勢データでの論理検証と、偽カメラで main() を回した画面確認(クラウド環境)のみ。
+- **未確認**: `start_motion_tetris.bat`(Windowsで未実行。初回clone・pull・オフライン時の動作)。
 - ウィンドウタイトルが旧称「Hand Tetris - 手でつかんでテトリス」のまま(未修正)。
 
 ## 一度入れて取りやめたもの(再追加しない)
