@@ -1,0 +1,62 @@
+# モーションテトリス 実行形式(exe)の作成(Python の無い Windows の PC 向け)
+# Dr. Ishida が「実行形式にして」と指示したときだけ、手で動かす(自動では作らない。CLAUDE.md の決まり)。
+# 使い方: GitHub の「Actions」→「実行形式(exe)を作る」→「Run workflow」。
+# GitHub の Windows の PC で HandTetris.exe を作り、今の版(v<VERSION>)の Releases に置く。
+# モデル2つは exe の中に入れる(生徒の PC では Python もモデルも不要)。
+name: 実行形式(exe)を作る
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: ライブラリを入れる
+        run: python -m pip install opencv-python mediapipe numpy pygame pillow pyinstaller
+
+      - name: 構文確認と自動テスト
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: |
+          python -m py_compile hand_tetris.py
+          python -m unittest discover tests -v
+
+      - name: モデルファイルをダウンロード
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task' -OutFile 'hand_landmarker.task'
+          Invoke-WebRequest -Uri 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task' -OutFile 'pose_landmarker_lite.task'
+
+      - name: exe を作る
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name HandTetris --collect-all mediapipe --add-data "hand_landmarker.task;." --add-data "pose_landmarker_lite.task;." hand_tetris.py
+          Get-Item dist\HandTetris.exe | Select-Object Name, Length
+
+      - name: Releases ページに置く
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(sed -n 's/^VERSION = "\([0-9.]*\)".*/\1/p' hand_tetris.py | head -1)
+          TAG="v${V}"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "モーションテトリス Ver ${V}" --notes "モーションテトリス Ver ${V}" --latest
+          fi
+          gh release upload "$TAG" dist/HandTetris.exe --clobber
+          BODY=$(gh release view "$TAG" --json body -q .body)
+          if ! printf '%s' "$BODY" | grep -q 'HandTetris.exe'; then
+            printf '%s\n\n### 実行形式(exe)\n- `HandTetris.exe`: Python の無い Windows の PC 用(Ver %s)。ダブルクリックで起動(初回は起動まで十数秒かかることがあります)。\n- 「Windows によって PC が保護されました」と出たら「詳細情報」→「実行」。\n- 作成日時: %s(日本時間)\n' "$BODY" "$V" "$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')" > notes.md
+            gh release edit "$TAG" --notes-file notes.md
+          fi
+# END OF FILE
