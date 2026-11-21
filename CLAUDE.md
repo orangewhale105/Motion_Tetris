@@ -24,6 +24,9 @@ GitHub: orangewhale105/Motion_Tetris(Private)。`.task` モデルとビルド成
   - 新しいPC: GitHubの `start_motion_tetris.bat` のページから「Download raw file」で保存してダブルクリック。必要なのは Git と Python のインストールのみ(初回cloneで GitHub のログイン画面が出る)。
   - pullできない(オフライン・そのPCで変更あり)ときは、手元の版で起動する。
   - 自身の更新で途中停止しないよう、%TEMP% にコピーしてから実行する。`.gitattributes` で `*.bat -text`(CRLFのまま保存)。
+  - **Shift_JIS(cp932)で保存し、chcp 65001 は使わない**(UTF-8版で「ダブルクリックしても何も起きない」と報告があったため。原因は未特定)。GitHubの画面では文字化けして見えるが正常。
+  - `cmd /k` で実行するので、エラーで止まっても画面が閉じずに表示が残る。正常終了時は `exit` で閉じる。
+  - bat を入手できないときの代替: Win+R に `cmd /k git clone https://github.com/orangewhale105/Motion_Tetris.git "%USERPROFILE%\Downloads\Motion_Tetris" & "%USERPROFILE%\Downloads\Motion_Tetris\start_motion_tetris.bat"`。
 
 ## ファイル
 | ファイル | 役割 |

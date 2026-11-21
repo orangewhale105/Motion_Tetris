@@ -1,20 +1,21 @@
 @echo off
-chcp 65001 > nul
 setlocal EnableDelayedExpansion
 
 rem ============================================================
-rem  ãƒ¢ãƒ¼ã‚·ãƒ§ãƒ³ãƒ†ãƒˆãƒªã‚¹ èµ·å‹•ç”¨(ã©ã®PCã§ã‚‚ã“ã‚Œã‚’ãƒ€ãƒ–ãƒ«ã‚¯ãƒªãƒƒã‚¯)
-rem   1. GitHub ã‹ã‚‰æœ€æ–°ç‰ˆã‚’å–å¾—(åˆå›ã¯ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã€2å›ç›®ä»¥é™ã¯æ›´æ–°)
-rem   2. è¶³ã‚Šãªã„ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã¨ãƒ¢ãƒ‡ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«ã‚’è‡ªå‹•ã§ç”¨æ„
-rem   3. ã‚²ãƒ¼ãƒ ã‚’èµ·å‹•
-rem  ã“ã®ãƒ•ã‚¡ã‚¤ãƒ«ã ã‘ã‚’åˆ¥ã®PCã«ç½®ã„ã¦å®Ÿè¡Œã—ã¦ã‚‚ã‚ˆã„(ãã®ã¨ãã¯
-rem  ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ãƒ•ã‚©ãƒ«ãƒ€ã®ä¸­ã® Motion_Tetris ã«å…¥ã‚Œã‚‹)ã€‚
+rem  ƒ‚[ƒVƒ‡ƒ“ƒeƒgƒŠƒX ‹N“®—p(‚Ç‚ÌPC‚Å‚à‚±‚ê‚ğƒ_ƒuƒ‹ƒNƒŠƒbƒN)
+rem   1. GitHub ‚©‚çÅV”Å‚ğæ“¾(‰‰ñ‚Íƒ_ƒEƒ“ƒ[ƒhA2‰ñ–ÚˆÈ~‚ÍXV)
+rem   2. ‘«‚è‚È‚¢ƒ‰ƒCƒuƒ‰ƒŠ‚Æƒ‚ƒfƒ‹ƒtƒ@ƒCƒ‹‚ğ©“®‚Å—pˆÓ
+rem   3. ƒQ[ƒ€‚ğ‹N“®
+rem  ‚±‚Ìƒtƒ@ƒCƒ‹‚¾‚¯‚ğ•Ê‚ÌPC‚É’u‚¢‚ÄÀs‚µ‚Ä‚à‚æ‚¢(‚»‚Ì‚Æ‚«‚Í
+rem  ƒ_ƒEƒ“ƒ[ƒhƒtƒHƒ‹ƒ_‚Ì’†‚Ì Motion_Tetris ‚É“ü‚ê‚é)B
+rem  ¦•¶š‰»‚¯‚É‚æ‚éŒë“®ì‚ğ”ğ‚¯‚é‚½‚ßA“ú–{ŒêWindows•W€‚Ì Shift_JIS ‚Å•Û‘¶‚µ‚Ä‚¢‚éB
 rem ============================================================
 
-rem --- æ›´æ–°(git pull)ã§ã“ã®ãƒ•ã‚¡ã‚¤ãƒ«è‡ªèº«ãŒæ›¸ãæ›ã‚ã£ã¦ã‚‚æ­¢ã¾ã‚‰ãªã„ã‚ˆã†ã€ä¸€æ™‚ã‚³ãƒ”ãƒ¼ã‹ã‚‰å®Ÿè¡Œã™ã‚‹ ---
+rem --- XV(git pull)‚Å‚±‚Ìƒtƒ@ƒCƒ‹©g‚ª‘‚«Š·‚í‚Á‚Ä‚à~‚Ü‚ç‚È‚¢‚æ‚¤AˆêƒRƒs[‚©‚çÀs‚·‚éB
+rem     cmd /k ‚ÅÀs‚·‚é‚Ì‚ÅA“r’†‚ÅƒGƒ‰[‚É‚È‚Á‚Ä‚à‰æ–Ê‚ª•Â‚¶‚¸‚ÉƒƒbƒZ[ƒW‚ªc‚éB
 if /i not "%~1"=="--from-temp" (
     copy /y "%~f0" "%TEMP%\motion_tetris_start.bat" > nul
-    call "%TEMP%\motion_tetris_start.bat" --from-temp "%~dp0"
+    cmd /k ""%TEMP%\motion_tetris_start.bat" --from-temp "%~dp0""
     exit /b
 )
 
@@ -28,35 +29,35 @@ if exist "%HERE%.git" if exist "%HERE%hand_tetris.py" (
 if not defined REPO set "REPO=%USERPROFILE%\Downloads\Motion_Tetris\"
 
 echo ============================================
-echo  ãƒ¢ãƒ¼ã‚·ãƒ§ãƒ³ãƒ†ãƒˆãƒªã‚¹ èµ·å‹•
-echo  ãƒ•ã‚©ãƒ«ãƒ€: %REPO%
+echo  ƒ‚[ƒVƒ‡ƒ“ƒeƒgƒŠƒX ‹N“®
+echo  ƒtƒHƒ‹ƒ_: %REPO%
 echo ============================================
 echo.
 
 rem --- [1/5] Git ---
-echo [1/5] Git ã‚’ç¢ºèªã—ã¦ã„ã¾ã™...
+echo [1/5] Git ‚ğŠm”F‚µ‚Ä‚¢‚Ü‚·...
 git --version > nul 2>&1
 if errorlevel 1 (
-    echo [ã‚¨ãƒ©ãƒ¼] Git ãŒå…¥ã£ã¦ã„ã¾ã›ã‚“ã€‚
-    echo   https://git-scm.com/download/win ã‹ã‚‰ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã—ã¦ã€ã‚‚ã†ä¸€åº¦å®Ÿè¡Œã—ã¦ãã ã•ã„ã€‚
+    echo [ƒGƒ‰[] Git ‚ª“ü‚Á‚Ä‚¢‚Ü‚¹‚ñB
+    echo   https://git-scm.com/download/win ‚©‚çƒCƒ“ƒXƒg[ƒ‹‚µ‚ÄA‚à‚¤ˆê“xÀs‚µ‚Ä‚­‚¾‚³‚¢B
     pause
     exit /b 1
 )
 
-rem --- [2/5] æœ€æ–°ç‰ˆã®å–å¾— ---
+rem --- [2/5] ÅV”Å‚Ìæ“¾ ---
 echo.
-echo [2/5] GitHub ã‹ã‚‰æœ€æ–°ç‰ˆã‚’å–å¾—ã—ã¦ã„ã¾ã™...
+echo [2/5] GitHub ‚©‚çÅV”Å‚ğæ“¾‚µ‚Ä‚¢‚Ü‚·...
 if not exist "%REPO%.git" (
     if exist "%REPO%hand_tetris.py" (
-        echo [ã‚¨ãƒ©ãƒ¼] %REPO% ã« GitHub ç®¡ç†ã§ãªã„ãƒ•ã‚¡ã‚¤ãƒ«ãŒã‚ã‚Šã¾ã™ã€‚
-        echo   ãƒ•ã‚©ãƒ«ãƒ€åã‚’å¤‰ãˆã‚‹ã‹å‰Šé™¤ã—ã¦ã‹ã‚‰ã€ã‚‚ã†ä¸€åº¦å®Ÿè¡Œã—ã¦ãã ã•ã„ã€‚
+        echo [ƒGƒ‰[] %REPO% ‚É GitHub ŠÇ—‚Å‚È‚¢ƒtƒ@ƒCƒ‹‚ª‚ ‚è‚Ü‚·B
+        echo   ƒtƒHƒ‹ƒ_–¼‚ğ•Ï‚¦‚é‚©íœ‚µ‚Ä‚©‚çA‚à‚¤ˆê“xÀs‚µ‚Ä‚­‚¾‚³‚¢B
         pause
         exit /b 1
     )
-    echo   åˆå›ã®ãŸã‚ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã—ã¾ã™ã€‚GitHub ã¸ã®ãƒ­ã‚°ã‚¤ãƒ³ç”»é¢ãŒå‡ºãŸã‚‰ãƒ­ã‚°ã‚¤ãƒ³ã—ã¦ãã ã•ã„ã€‚
+    echo   ‰‰ñ‚Ì‚½‚ßƒ_ƒEƒ“ƒ[ƒh‚µ‚Ü‚·BGitHub ‚Ö‚ÌƒƒOƒCƒ“‰æ–Ê‚ªo‚½‚çƒƒOƒCƒ“‚µ‚Ä‚­‚¾‚³‚¢B
     git clone "%REPO_URL%" "%REPO:~0,-1%"
     if errorlevel 1 (
-        echo [ã‚¨ãƒ©ãƒ¼] ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã«å¤±æ•—ã—ã¾ã—ãŸã€‚ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ã¨ GitHub ã®ãƒ­ã‚°ã‚¤ãƒ³ã‚’ç¢ºèªã—ã¦ãã ã•ã„ã€‚
+        echo [ƒGƒ‰[] ƒ_ƒEƒ“ƒ[ƒh‚É¸”s‚µ‚Ü‚µ‚½Bƒlƒbƒgƒ[ƒN‚Æ GitHub ‚ÌƒƒOƒCƒ“‚ğŠm”F‚µ‚Ä‚­‚¾‚³‚¢B
         pause
         exit /b 1
     )
@@ -66,14 +67,14 @@ git checkout -q main
 git pull --ff-only
 if errorlevel 1 (
     echo.
-    echo [æ³¨æ„] æœ€æ–°ç‰ˆã‚’å–å¾—ã§ãã¾ã›ã‚“ã§ã—ãŸ(ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯æœªæ¥ç¶šã€ã¾ãŸã¯ã“ã®PCã§å¤‰æ›´ã—ãŸãƒ•ã‚¡ã‚¤ãƒ«ãŒã‚ã‚‹)ã€‚
-    echo   ä»Šã“ã®PCã«ã‚ã‚‹ç‰ˆã§èµ·å‹•ã—ã¾ã™ã€‚
+    echo [’ˆÓ] ÅV”Å‚ğæ“¾‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½(ƒlƒbƒgƒ[ƒN–¢Ú‘±A‚Ü‚½‚Í‚±‚ÌPC‚Å•ÏX‚µ‚½ƒtƒ@ƒCƒ‹‚ª‚ ‚é)B
+    echo   ¡‚±‚ÌPC‚É‚ ‚é”Å‚Å‹N“®‚µ‚Ü‚·B
     echo.
 )
 
 rem --- [3/5] Python ---
 echo.
-echo [3/5] Python ã¨ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã‚’ç¢ºèªã—ã¦ã„ã¾ã™...
+echo [3/5] Python ‚Æƒ‰ƒCƒuƒ‰ƒŠ‚ğŠm”F‚µ‚Ä‚¢‚Ü‚·...
 set "PY="
 py -3 --version > nul 2>&1
 if not errorlevel 1 set "PY=py -3"
@@ -92,8 +93,8 @@ if not defined PY (
     )
 )
 if not defined PY (
-    echo [ã‚¨ãƒ©ãƒ¼] Python ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚
-    echo   https://www.python.org/downloads/ ã‹ã‚‰ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã—ã¦ã€ã‚‚ã†ä¸€åº¦å®Ÿè¡Œã—ã¦ãã ã•ã„ã€‚
+    echo [ƒGƒ‰[] Python ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB
+    echo   https://www.python.org/downloads/ ‚©‚çƒCƒ“ƒXƒg[ƒ‹‚µ‚ÄA‚à‚¤ˆê“xÀs‚µ‚Ä‚­‚¾‚³‚¢B
     pause
     exit /b 1
 )
@@ -104,52 +105,53 @@ call :ensure numpy numpy
 call :ensure pygame pygame
 call :ensure PIL pillow
 if defined FAILED (
-    echo [ã‚¨ãƒ©ãƒ¼] æ¬¡ã®ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã®ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã«å¤±æ•—ã—ã¾ã—ãŸ:%FAILED%
+    echo [ƒGƒ‰[] Ÿ‚Ìƒ‰ƒCƒuƒ‰ƒŠ‚ÌƒCƒ“ƒXƒg[ƒ‹‚É¸”s‚µ‚Ü‚µ‚½:%FAILED%
     pause
     exit /b 1
 )
 
-rem --- [4/5] ãƒ¢ãƒ‡ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«(GitHubã«ã¯ç½®ã„ã¦ã„ãªã„ã®ã§ã€ç„¡ã‘ã‚Œã°ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰) ---
+rem --- [4/5] ƒ‚ƒfƒ‹ƒtƒ@ƒCƒ‹(GitHub‚É‚Í’u‚¢‚Ä‚¢‚È‚¢‚Ì‚ÅA–³‚¯‚ê‚Îƒ_ƒEƒ“ƒ[ƒh) ---
 echo.
-echo [4/5] ãƒ¢ãƒ‡ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ç¢ºèªã—ã¦ã„ã¾ã™...
-rem ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ãƒ•ã‚©ãƒ«ãƒ€ã«ä»¥å‰ã®ãƒ¢ãƒ‡ãƒ«ãŒã‚ã‚Œã°ã€ãã‚Œã‚’ä½¿ã†
+echo [4/5] ƒ‚ƒfƒ‹ƒtƒ@ƒCƒ‹‚ğŠm”F‚µ‚Ä‚¢‚Ü‚·...
+rem ƒ_ƒEƒ“ƒ[ƒhƒtƒHƒ‹ƒ_‚ÉˆÈ‘O‚Ìƒ‚ƒfƒ‹‚ª‚ ‚ê‚ÎA‚»‚ê‚ğg‚¤
 if not exist hand_landmarker.task if exist "%USERPROFILE%\Downloads\hand_landmarker.task" copy /y "%USERPROFILE%\Downloads\hand_landmarker.task" . > nul
 if not exist pose_landmarker_lite.task if exist "%USERPROFILE%\Downloads\pose_landmarker_lite.task" copy /y "%USERPROFILE%\Downloads\pose_landmarker_lite.task" . > nul
 if not exist hand_landmarker.task (
-    echo   hand_landmarker.task ã‚’ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã—ã¾ã™...
+    echo   hand_landmarker.task ‚ğƒ_ƒEƒ“ƒ[ƒh‚µ‚Ü‚·...
     powershell -NoProfile -Command "Invoke-WebRequest -Uri 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task' -OutFile 'hand_landmarker.task'"
 )
 if not exist pose_landmarker_lite.task (
-    echo   pose_landmarker_lite.task ã‚’ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã—ã¾ã™...
+    echo   pose_landmarker_lite.task ‚ğƒ_ƒEƒ“ƒ[ƒh‚µ‚Ü‚·...
     powershell -NoProfile -Command "Invoke-WebRequest -Uri 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task' -OutFile 'pose_landmarker_lite.task'"
 )
 if not exist hand_landmarker.task goto :model_error
 if not exist pose_landmarker_lite.task goto :model_error
 
-rem --- [5/5] èµ·å‹• ---
+rem --- [5/5] ‹N“® ---
 echo.
-echo [5/5] èµ·å‹•ã—ã¾ã™...
+echo [5/5] ‹N“®‚µ‚Ü‚·...
 %PY% hand_tetris.py
 if errorlevel 1 (
     echo.
-    echo [ã‚¨ãƒ©ãƒ¼] ç•°å¸¸çµ‚äº†ã—ã¾ã—ãŸã€‚ä¸Šã®ã‚¨ãƒ©ãƒ¼æ–‡ã‚’ç¢ºèªã—ã¦ãã ã•ã„ã€‚
+    echo [ƒGƒ‰[] ˆÙíI—¹‚µ‚Ü‚µ‚½Bã‚ÌƒGƒ‰[•¶‚ğŠm”F‚µ‚Ä‚­‚¾‚³‚¢B
     pause
+    exit /b 1
 )
-exit /b 0
+exit
 
 :model_error
-echo [ã‚¨ãƒ©ãƒ¼] ãƒ¢ãƒ‡ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ç”¨æ„ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ã‚’ç¢ºèªã—ã¦ãã ã•ã„ã€‚
+echo [ƒGƒ‰[] ƒ‚ƒfƒ‹ƒtƒ@ƒCƒ‹‚ğ—pˆÓ‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½Bƒlƒbƒgƒ[ƒN‚ğŠm”F‚µ‚Ä‚­‚¾‚³‚¢B
 pause
 exit /b 1
 
 :ensure
-rem å¼•æ•°1=importå, å¼•æ•°2=pipãƒ‘ãƒƒã‚±ãƒ¼ã‚¸å
+rem ˆø”1=import–¼, ˆø”2=pipƒpƒbƒP[ƒW–¼
 %PY% -c "import %1" > nul 2>&1
 if not errorlevel 1 (
     echo   %2 : OK
     goto :eof
 )
-echo   %2 ã‚’ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã—ã¾ã™...
+echo   %2 ‚ğƒCƒ“ƒXƒg[ƒ‹‚µ‚Ü‚·...
 %PY% -m pip install %2
 if errorlevel 1 set "FAILED=!FAILED! %2"
 goto :eof
