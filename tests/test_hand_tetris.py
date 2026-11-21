@@ -117,6 +117,24 @@ class GameTest(unittest.TestCase):
         self.assertEqual(ht.score_rank(0)["rank"], "D")
         self.assertEqual(ht.score_rank(3000)["rank"], "S")
 
+    def test_bgm_bars(self):
+        for tempo in ht.BGM_TEMPOS:
+            bars = ht.render_bgm_bars(tempo)
+            self.assertEqual(len(bars), 8)
+            loop_sec = sum(len(b) for b in bars) / ht.SAMPLE_RATE
+            self.assertAlmostEqual(loop_sec, 8 * 4 * 60 / ht.BGM_BPM / tempo, places=2)
+            self.assertLessEqual(max(abs(b).max() for b in bars), ht.BGM_VOLUME + 1e-6)
+
+    def test_exercise_praise_is_positive(self):
+        st = ht.ExerciseStats()
+        self.assertEqual(ht.exercise_praise(st)[0], "遊んでくれてありがとう!")
+        st.counts.update(step_right=10, step_left=9, squat=5, arm_raise=6)
+        lines = ht.exercise_praise(st)
+        self.assertIn("特に右ステップをよくがんばりました!", lines)
+        self.assertIn("左右バランスよく踏み出せました!", lines)
+        st.counts.update(step_right=1, step_left=0, squat=0, arm_raise=0)
+        self.assertEqual(ht.exercise_praise(st)[:2], ["体を動かす第一歩、", "ナイスチャレンジです!"])
+
     def test_version_format(self):
         self.assertRegex(ht.VERSION, r"^\d+\.\d+$")
 
