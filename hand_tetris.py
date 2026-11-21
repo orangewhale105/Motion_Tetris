@@ -39,7 +39,7 @@
   ・ブロックが上まで積み上がると、BGMのテンポが上がり心音と警告表示が出ます。
   ・ゲーム終了時: 結果発表(スコアのカウントアップ・ランク表示)と、ランクに応じた
     桜吹雪・花火・歓声。
-  ・運動の記録: ステップ数・スクワット数・上肢挙上(万歳)数・肩の最大角度・プレイ
+  ・運動の記録: ステップ数・スクワット数・両上肢挙上(万歳)数・肩の最大角度・プレイ
     時間を表示します。
 
 【起動のしかた】
@@ -64,7 +64,7 @@
 
 # 版の番号。変更して main に取り込むと、GitHub の Releases に新しい版として自動で置かれる
 # (.github/workflows/release.yml)。変更内容は CHANGELOG.md に書く。
-VERSION = "2.1"
+VERSION = "2.2"
 
 import os
 import sys
@@ -448,23 +448,152 @@ SE_CHEER = _sound_from(make_crowd_cheer(4.0), 0.5)
 SE_APPLAUSE = _sound_from(make_applause(3.0), 0.45)
 SE_FIREWORK = _sound_from(make_firework(), 0.4)
 
-# BGM (周波数Hz, 長さ秒)
-_BGM_NOTES = [
-    (784, 0.14), (784, 0.10), (988, 0.14), (1046, 0.22),
-    (988, 0.14), (880, 0.10), (784, 0.14), (659, 0.22),
-    (698, 0.14), (698, 0.10), (880, 0.14), (932, 0.22),
-    (880, 0.14), (784, 0.10), (698, 0.14), (659, 0.22),
-]
+SE_EXERCISE = _sound_from(_seq_arr([(988, 0.05), (1319, 0.05), (1760, 0.12)], "square"), 0.22)  # 運動の回数が出るとき
+SE_PRAISE = _sound_from(_mix([
+    (_seq_arr([(784, 0.1), (988, 0.1), (1175, 0.1), (1568, 0.4)], "triangle"), 0, 1.0),
+    (_chord_arr([784, 988, 1175], 0.4, "sine"), 0.3, 0.6),
+]), 0.34)  # 運動をほめるメッセージが出るとき
+
+# ---------------------------------------------------------------------------
+# BGM: メロディ・ベース・和音の刻み・ドラムの4パートで作る、明るいチップチューン風の
+# 8小節ループ(オリジナル曲。ハ長調 C-Am-F-G の進行)。1小節ずつSoundにし、専用の
+# チャンネルに次の小節を順に予約(queue)して切れ目なく鳴らす。テンポは小節の境目で変わる。
+# ---------------------------------------------------------------------------
+BGM_BPM = 132
 BGM_TEMPOS = (1.0, 1.25, 1.5)  # ピンチ度 0/1/2 のときのテンポ倍率
+BGM_VOLUME = 0.30
+_NOTE_INDEX = {"C": 0, "C#": 1, "D": 2, "D#": 3, "E": 4, "F": 5, "F#": 6, "G": 7, "G#": 8, "A": 9, "A#": 10, "B": 11}
+
+
+def note_freq(name):
+    """"E5" のような音名を周波数(Hz)にする"""
+    midi = 12 * (int(name[-1]) + 1) + _NOTE_INDEX[name[:-1]]
+    return 440.0 * 2 ** ((midi - 69) / 12)
+
+
+# メロディ(1小節=8分音符8つ。"-" は前の音を伸ばす、"." は休み)
+_BGM_MELODY = [
+    "E5 G5 C6 G5 E5 G5 A5 G5",
+    "E5 . C5 E5 A5 - G5 E5",
+    "F5 A5 C6 A5 F5 A5 G5 F5",
+    "D5 . G5 - B5 - D6 -",
+    "E5 G5 C6 E6 D6 C6 B5 C6",
+    "A5 - E5 A5 C6 - B5 A5",
+    "F5 A5 C6 F5 G5 B5 D6 B5",
+    "C6 - G5 E5 C5 . . .",
+]
+# 和音(半小節ごと)
+_BGM_CHORDS = [("C", "C"), ("Am", "Am"), ("F", "F"), ("G", "G"),
+               ("C", "C"), ("Am", "Am"), ("F", "G"), ("C", "C")]
+_CHORD_TONES = {"C": ("C4", "E4", "G4"), "Am": ("A3", "C4", "E4"), "F": ("F3", "A3", "C4"), "G": ("G3", "B3", "D4")}
+_CHORD_ROOT = {"C": "C3", "Am": "A2", "F": "F2", "G": "G2"}
+
+
+def _pulse_note(freq, dur, duty=0.25, attack=0.005, release=0.03, decay_to=0.65, vibrato=False):
+    n = max(1, int(SAMPLE_RATE * dur))
+    t = np.arange(n) / SAMPLE_RATE
+    f = freq * (1 + 0.006 * np.sin(2 * np.pi * 5.5 * t) * np.clip((t - 0.12) / 0.1, 0, 1)) if vibrato else freq
+    phase = np.cumsum(np.full(n, 1.0) * f) / SAMPLE_RATE
+    wave = np.where((phase % 1.0) < duty, 1.0, -1.0)
+    env = np.minimum(1.0, t / attack) * (decay_to + (1 - decay_to) * np.exp(-t / 0.08))
+    rel = max(1, int(SAMPLE_RATE * release))
+    env[-rel:] *= np.linspace(1, 0, min(rel, n))
+    return wave * env
+
+
+def _tri_note(freq, dur):
+    n = max(1, int(SAMPLE_RATE * dur))
+    t = np.arange(n) / SAMPLE_RATE
+    wave = 2 * np.abs(2 * ((t * freq) % 1) - 1) - 1
+    env = np.exp(-t / max(0.05, dur * 0.8))
+    fade = max(1, min(n, int(SAMPLE_RATE * 0.01)))
+    env[-fade:] *= np.linspace(1, 0, fade)
+    return wave * env
+
+
+_DRUM_KICK = _sweep_arr(150, 45, 0.15, "sine") * np.exp(-np.arange(int(SAMPLE_RATE * 0.15)) / SAMPLE_RATE / 0.05)
+_DRUM_SNARE = (_thud(0.14, 1000, 6000, 0.05) / 1.0 +
+               0.5 * _tone_array(190, 0.14, wave="sine") * np.exp(-np.arange(int(SAMPLE_RATE * 0.14)) / SAMPLE_RATE / 0.04))
+_DRUM_SNARE /= np.max(np.abs(_DRUM_SNARE)) + 1e-9
+_DRUM_HAT = _thud(0.035, 7000, 14000, 0.01)
+_DRUM_HAT /= np.max(np.abs(_DRUM_HAT)) + 1e-9
+
+
+def render_bgm_bars(tempo=1.0):
+    """BGMを1小節ずつの配列のリストで返す(テンポ倍率 tempo)。
+    ループの継ぎ目で音が切れないよう、最後からはみ出した余韻は先頭に重ねる。"""
+    eighth = 60.0 / BGM_BPM / 2 / tempo
+    n_steps = 8 * len(_BGM_MELODY)
+    pos = [int(round(i * eighth * SAMPLE_RATE)) for i in range(n_steps + 1)]
+    total = pos[-1]
+    out = np.zeros(total + int(SAMPLE_RATE * 1.0))
+
+    def put(arr, step, gain):
+        st = pos[step]
+        out[st:st + len(arr)] += arr * gain
+
+    # メロディ(伸ばしの記号をまとめて1つの音にする)
+    steps = " ".join(_BGM_MELODY).split()
+    i = 0
+    while i < len(steps):
+        tok = steps[i]
+        if tok in ("-", "."):
+            i += 1
+            continue
+        j = i + 1
+        while j < len(steps) and steps[j] == "-":
+            j += 1
+        length = (j - i) * eighth
+        put(_pulse_note(note_freq(tok), length * 0.95, vibrato=length > eighth * 1.5), i, 0.34)
+        i = j
+
+    for bar, (c1, c2) in enumerate(_BGM_CHORDS):
+        for half, chord in enumerate((c1, c2)):
+            base = bar * 8 + half * 4
+            root = note_freq(_CHORD_ROOT[chord])
+            # ベース: ド・(休)・オクターブ上・ド の跳ねるリズム
+            for k, mult in ((0, 1), (2, 2), (3, 1)):
+                put(_tri_note(root * mult, eighth * 0.9), base + k, 0.42)
+            # 和音の裏打ち(8分の裏で短く刻む)
+            stab = sum(_pulse_note(note_freq(n), eighth * 0.45, duty=0.5, decay_to=0.3) for n in _CHORD_TONES[chord]) / 3
+            for k in (1, 3):
+                put(stab, base + k, 0.16)
+        # ドラム: キック1・3拍、スネア2・4拍、ハイハットは8分。最後の小節はスネアのフィル
+        b0 = bar * 8
+        for k in (0, 4):
+            put(_DRUM_KICK, b0 + k, 0.55)
+        if bar % 2 == 1:
+            put(_DRUM_KICK, b0 + 7, 0.35)
+        snares = (2, 5, 6, 7) if bar == len(_BGM_CHORDS) - 1 else (2, 6)
+        for k in snares:
+            put(_DRUM_SNARE, b0 + k, 0.30)
+        for k in range(8):
+            put(_DRUM_HAT, b0 + k, 0.10 if k % 2 == 0 else 0.16)
+
+    tail = out[total:]
+    out = out[:total].copy()
+    out[:len(tail)] += tail[:total]
+    out = out / (np.max(np.abs(out)) + 1e-9) * BGM_VOLUME
+    return [out[pos[b * 8]:pos[(b + 1) * 8]] for b in range(len(_BGM_MELODY))]
+
+
+def _bars_to_sounds(bars):
+    sounds = []
+    for b in bars:
+        data = (b * 32767).astype(np.int16)
+        sounds.append(pygame.sndarray.make_sound(np.ascontiguousarray(np.column_stack([data, data]))))
+    return sounds
 
 
 class BgmPlayer:
-    """バックグラウンドスレッドでBGMをループ再生。set_tempo_level()でテンポを変える。
-    世代番号でスレッドを管理し、stop()→start()を素早く行っても二重再生にならないようにする。"""
+    """専用チャンネルで、BGMの小節を順に予約して切れ目なくループ再生する。
+    set_tempo_level() のテンポは次の小節から反映。世代番号でスレッドを管理し、
+    stop()→start() を素早く行っても二重再生にならないようにする。"""
 
     def __init__(self):
-        self._caches = {t: [make_tone(f, d / t, volume=0.14, wave="triangle") for f, d in _BGM_NOTES]
-                        for t in BGM_TEMPOS}
+        pygame.mixer.set_reserved(1)  # 効果音にBGMのチャンネルを取られないようにする
+        self.channel = pygame.mixer.Channel(0)
+        self._bars = {t: _bars_to_sounds(render_bgm_bars(t)) for t in BGM_TEMPOS}
         self.tempo_level = 0
         self._gen = 0
 
@@ -474,18 +603,24 @@ class BgmPlayer:
 
     def stop(self):
         self._gen += 1
+        self.channel.stop()
 
     def set_tempo_level(self, level):
         self.tempo_level = max(0, min(len(BGM_TEMPOS) - 1, level))
 
+    def _bar(self, i):
+        bars = self._bars[BGM_TEMPOS[self.tempo_level]]
+        return bars[i % len(bars)]
+
     def _loop(self, gen):
+        i = 0
+        self.channel.play(self._bar(i))
+        i += 1
         while gen == self._gen:
-            for i, (_, dur) in enumerate(_BGM_NOTES):
-                if gen != self._gen:
-                    return
-                tempo = BGM_TEMPOS[self.tempo_level]
-                self._caches[tempo][i].play()
-                time.sleep(dur / tempo * 0.92)
+            if self.channel.get_queue() is None:
+                self.channel.queue(self._bar(i))
+                i += 1
+            time.sleep(0.02)
 
 
 # ---------------------------------------------------------------------------
@@ -1556,12 +1691,12 @@ def draw_board_overlay(frame, game: TetrisGame, board_x, board_y, show_piece=Tru
 
         for c in range(BOARD_W + 1):
             x = bx + c * CELL
-            cv2.line(overlay, (x, by), (x, by + board_h_px), (70, 70, 70), 1)
+            cv2.line(overlay, (x, by), (x, by + board_h_px), (55, 55, 55), 1)
         for r in range(BOARD_H + 1):
             y = by + r * CELL
-            cv2.line(overlay, (bx, y), (bx + board_w_px, y), (70, 70, 70), 1)
+            cv2.line(overlay, (bx, y), (bx + board_w_px, y), (55, 55, 55), 1)
 
-        alpha = 0.72
+        alpha = 0.88  # 盤面を見やすくするため、カメラ映像の透け具合を抑えている(以前は0.72)
         frame[y0:y1, x0:x1] = cv2.addWeighted(overlay, alpha, roi, 1 - alpha, 0)
 
     # 枠線(ピンチ時は黄色/赤で脈打つ)
@@ -1587,14 +1722,19 @@ def draw_board_overlay(frame, game: TetrisGame, board_x, board_y, show_piece=Tru
 
 
 def _draw_cell(frame, board_x, board_y, r, c, color, ghost=False):
+    """1マスを描く。立体的に見えるよう、左上を明るく・右下を暗く縁取る。"""
     x0 = board_x + c * CELL
     y0 = board_y + r * CELL
     x1, y1 = x0 + CELL, y0 + CELL
     if ghost:
-        cv2.rectangle(frame, (x0 + 2, y0 + 2), (x1 - 2, y1 - 2), color, 2)
-    else:
-        cv2.rectangle(frame, (x0 + 1, y0 + 1), (x1 - 1, y1 - 1), color, -1)
-        cv2.rectangle(frame, (x0 + 1, y0 + 1), (x1 - 1, y1 - 1), (255, 255, 255), 1)
+        cv2.rectangle(frame, (x0 + 3, y0 + 3), (x1 - 3, y1 - 3), color, max(2, CELL // 14))
+        return
+    e = max(2, CELL // 9)
+    light = tuple(min(255, int(v * 0.5 + 128)) for v in color)
+    dark = tuple(int(v * 0.45) for v in color)
+    cv2.rectangle(frame, (x0 + 1, y0 + 1), (x1 - 1, y1 - 1), dark, -1)
+    cv2.rectangle(frame, (x0 + 1, y0 + 1), (x1 - 1 - e, y1 - 1 - e), light, -1)
+    cv2.rectangle(frame, (x0 + 1 + e, y0 + 1 + e), (x1 - 1 - e, y1 - 1 - e), color, -1)
 
 
 # ---------------------------------------------------------------------------
@@ -1614,7 +1754,10 @@ RESULT_COUNT_T0 = 3.0
 RESULT_COUNT_DUR = 2.0
 RESULT_RANK_T = 5.3
 RESULT_RECORD_T = 5.8
-RESULT_RETRY_T = 6.3         # これ以降、ジャンプで再スタートできる
+RESULT_EX_T0 = 6.0           # 運動の回数を1つずつ出す
+RESULT_EX_DT = 0.5
+RESULT_PRAISE_T = 8.1        # 運動をほめるメッセージ
+RESULT_RETRY_T = 8.8         # これ以降、ジャンプで再スタートできる
 RESULT_SKEY_SEC = 1.0        # これ以降、Sキーで再スタートできる(結果発表の途中でも可)
 
 # ランクとゲーム終了時の演出(スコアのしきい値は仮。実際のプレイで調整する)
@@ -1630,6 +1773,36 @@ RANK_TABLE = [
     {"rank": "D", "min": 0, "color": (200, 200, 200), "msg": "ドンマイ! もう一度!", "sakura": 0, "fireworks": 0.0,
      "sounds": (SE_DONMAI,)},
 ]
+
+
+def exercise_items(stats):
+    """終了後に大きく出す運動の回数"""
+    c = stats.counts
+    return [("右ステップ", c["step_right"]), ("左ステップ", c["step_left"]),
+            ("スクワット", c["squat"]), ("両上肢挙上(万歳)", c["arm_raise"])]
+
+
+def exercise_praise(stats):
+    """運動したことをほめるメッセージ(行のリスト)。回数が少なくても否定的なことは言わない。"""
+    items = exercise_items(stats)
+    total = sum(n for _, n in items)
+    if total >= 60:
+        lines = ["すばらしい運動量です!", "体がしっかり動いていました!"]
+    elif total >= 30:
+        lines = ["よく体を動かしました!", "この調子で続けましょう!"]
+    elif total >= 10:
+        lines = ["ナイスファイト!", "しっかり体を動かせましたね!"]
+    elif total >= 1:
+        lines = ["体を動かす第一歩、", "ナイスチャレンジです!"]
+    else:
+        return ["遊んでくれてありがとう!", "次は体を動かしてみよう!"]
+    short = {"両上肢挙上(万歳)": "万歳"}  # 1行に収めるための短い呼び名
+    best_label, best_n = max(items, key=lambda x: x[1])
+    lines.append(f"特に{short.get(best_label, best_label)}をよくがんばりました!")
+    r, l = stats.counts["step_right"], stats.counts["step_left"]
+    if min(r, l) >= 3 and min(r, l) / max(r, l) >= 0.7:
+        lines.append("左右バランスよく踏み出せました!")
+    return lines
 
 
 def score_rank(score):
@@ -1685,7 +1858,7 @@ def draw_exercise_panel(frame, texts, stats, x, y, S, now):
         ("step", f"ステップ  右 {stats.counts['step_right']} / 左 {stats.counts['step_left']}",
          max(stats.flash_until["step_right"], stats.flash_until["step_left"])),
         ("squat", f"スクワット  {stats.counts['squat']} 回", stats.flash_until["squat"]),
-        ("arm", f"上肢挙上(万歳)  {stats.counts['arm_raise']} 回", stats.flash_until["arm_raise"]),
+        ("arm", f"両上肢挙上(万歳)  {stats.counts['arm_raise']} 回", stats.flash_until["arm_raise"]),
         ("flex", f"肩 最大屈曲  左 {fmt_angle(stats.max_flex['left'])}  右 {fmt_angle(stats.max_flex['right'])}", 0),
         ("abd", f"肩 最大外転  左 {fmt_angle(stats.max_abd['left'])}  右 {fmt_angle(stats.max_abd['right'])}", 0),
         ("time", f"プレイ時間  {fmt_time(stats.play_sec)}", 0),
@@ -1755,6 +1928,11 @@ def update_result(result, game, fx, el, now):
             fx._next_firework = now
     if result["new_record"] and once("record", RESULT_RECORD_T):
         SE_NEWRECORD.play()
+    for i in range(4):
+        if once(f"ex{i}", RESULT_EX_T0 + i * RESULT_EX_DT):
+            SE_EXERCISE.play()
+    if once("praise", RESULT_PRAISE_T):
+        SE_PRAISE.play()
 
 
 def draw_result_screen(frame, texts, game, stats, result, el, now, cx, w, h, S, board_x):
@@ -1767,7 +1945,7 @@ def draw_result_screen(frame, texts, game, stats, result, el, now, cx, w, h, S, 
         return
 
     pw = min(1150 * S, board_x - 30)
-    ph = min(760 * S, h - 60 * S)
+    ph = min(880 * S, h - 40 * S)
     px0 = max(10, cx - pw / 2)
     py0 = (h - ph) / 2
     shade_rect(frame, px0, py0, px0 + pw, py0 + ph, 0.68, (40, 20, 10))
@@ -1806,28 +1984,40 @@ def draw_result_screen(frame, texts, game, stats, result, el, now, cx, w, h, S, 
         texts.add("NEW RECORD!", (lx, py0 + 560 * S), 44 * S, (0, 255, 255), stroke=4,
                   stroke_color=(0, 0, 200), bold=True)
 
-    # 右列: 運動の記録
-    rx = px0 + pw * 0.54
+    # 右列: がんばった運動(回数を1つずつ大きく出し、最後にほめるメッセージ)
+    rx = px0 + pw * 0.53
     rvx = px0 + pw - 40 * S
-    texts.add("運動の記録", (rx, py0 + 110 * S), 34 * S, (120, 255, 200), stroke=3, bold=True)
-    rows = [
-        ("プレイ時間", fmt_time(stats.play_sec)),
-        ("ステップ", f"{stats.counts['step_right'] + stats.counts['step_left']} 歩"),
-        ("  (右 / 左)", f"{stats.counts['step_right']} / {stats.counts['step_left']}"),
-        ("スクワット", f"{stats.counts['squat']} 回"),
-        ("上肢挙上(万歳)", f"{stats.counts['arm_raise']} 回"),
-        ("肩 最大屈曲 左/右", f"{fmt_angle(stats.max_flex['left'])} / {fmt_angle(stats.max_flex['right'])}"),
-        ("肩 最大外転 左/右", f"{fmt_angle(stats.max_abd['left'])} / {fmt_angle(stats.max_abd['right'])}"),
-    ]
-    for i, (label, value) in enumerate(rows):
-        ry = py0 + 170 * S + i * 46 * S
-        texts.add(label, (rx, ry), 27 * S, (230, 230, 230), stroke=2)
-        texts.add(value, (rvx, ry), 27 * S, (255, 255, 255), "right", stroke=2)
-    texts.add("※肩の角度はカメラからの推定値(参考値)", (rx, py0 + 170 * S + len(rows) * 46 * S), 20 * S,
-              (180, 180, 180), stroke=1)
+    texts.add("がんばった運動", (rx, py0 + 105 * S), 38 * S, (120, 255, 200), stroke=3, bold=True)
+    for i, (label, count) in enumerate(exercise_items(stats)):
+        t0 = RESULT_EX_T0 + i * RESULT_EX_DT
+        if el < t0:
+            break
+        p = _ease_out((el - t0) / 0.4)
+        y = py0 + 190 * S + i * 70 * S
+        pop = 1 + 0.45 * max(0.0, 1 - (el - t0) / 0.15)
+        texts.add(label, (rx, y), 34 * S, (255, 255, 255), "left", "middle", stroke=3)
+        texts.add(f"{int(round(count * p))}", (rvx - 50 * S, y), 56 * S * pop, (0, 255, 255), "right", "middle",
+                  stroke=5, stroke_color=(0, 0, 120), bold=True)
+        texts.add("回", (rvx, y), 30 * S, (255, 255, 255), "right", "middle", stroke=2)
+    if el >= RESULT_PRAISE_T:
+        total = sum(n for _, n in exercise_items(stats))
+        texts.add(f"合計 {total} 回 体を動かしました!", (rx, py0 + 470 * S), 34 * S, (0, 230, 255),
+                  stroke=3, bold=True)
+        pop = 1 + 0.3 * max(0.0, 1 - (el - RESULT_PRAISE_T) / 0.2)
+        for j, line in enumerate(exercise_praise(stats)):
+            texts.add(line, (rx, py0 + 525 * S + j * 42 * S), 30 * S * pop, (120, 255, 120), stroke=3, bold=True)
+    small = [("プレイ時間", fmt_time(stats.play_sec)),
+             ("肩 最大屈曲 左/右", f"{fmt_angle(stats.max_flex['left'])} / {fmt_angle(stats.max_flex['right'])}"),
+             ("肩 最大外転 左/右", f"{fmt_angle(stats.max_abd['left'])} / {fmt_angle(stats.max_abd['right'])}")]
+    for i, (label, value) in enumerate(small):
+        ry = py0 + 700 * S + i * 32 * S
+        texts.add(label, (rx, ry), 22 * S, (210, 210, 210), stroke=2)
+        texts.add(value, (rvx, ry), 22 * S, (230, 230, 230), "right", stroke=2)
+    texts.add("※肩の角度はカメラからの推定値(参考値)", (rx, py0 + 700 * S + 3 * 32 * S), 18 * S,
+              (170, 170, 170), stroke=1)
 
     if el >= RESULT_RETRY_T and int(now * 2.5) % 2 == 0:
-        texts.add("ジャンプ または Sキーで もう一度!", (px0 + pw / 2, py0 + ph - 50 * S), 42 * S,
+        texts.add("ジャンプ または Sキーで もう一度!", (px0 + pw * 0.27, py0 + ph - 45 * S), 38 * S,
                   (80, 255, 255), "center", "middle", stroke=4, stroke_color=(0, 0, 160), bold=True)
 
 
@@ -1895,8 +2085,8 @@ def main():
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # ウィンドウの縦幅いっぱいを使うようセルサイズを毎フレーム再計算する。
-        TOP_MARGIN = 140
-        BOTTOM_MARGIN = 85
+        TOP_MARGIN = 56     # 盤面を大きくするため上下の余白を小さくしている(以前は140/85)
+        BOTTOM_MARGIN = 16
         available_h = max(BOARD_H * 10, h - TOP_MARGIN - BOTTOM_MARGIN)
         CELL = max(14, available_h // BOARD_H)
         board_w_px = BOARD_W * CELL
@@ -2025,7 +2215,7 @@ def main():
             pulse = 0.5 + 0.5 * math.sin(now * 2 * math.pi * 2.0)
             cv2.rectangle(frame, (0, 0), (w - 1, h - 1), (0, 0, 255), int((6 + 10 * pulse) * S) + 1)
             if int(now * 4) % 2 == 0:
-                texts.add("DANGER!!", (board_cx, board_y - 40 * S), 44 * S, (0, 0, 255), "center", "middle",
+                texts.add("DANGER!!", (board_x - 20 * S, board_y + 60 * S), 52 * S, (0, 0, 255), "right", "middle",
                           stroke=4, stroke_color=(255, 255, 255), bold=True)
 
         if pose_data is not None:
