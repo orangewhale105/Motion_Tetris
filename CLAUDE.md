@@ -9,32 +9,28 @@
 - 事実に基づかない推測を足さない。簡潔に。
 - 変更後は必ず `python -m py_compile hand_tetris.py` で構文確認し、実機で確認すべき点は「未確認」と明記する。
 - 通常の仕様変更の成果物は、Python導入済みのPC(Dr. Ishidaの開発PC)で `python hand_tetris.py` として動くコードでよい。exeは作らない。
-- 作業の報告には毎回、GitHubでの反映手順(先生のPCで取り込むコマンド)と、ブランチ・コミット・差分(compare)のリンクを付ける。
+- 作業の報告には毎回、GitHubでの反映手順(先生のPCでの入手方法: hand_tetris.py の「Download raw file」のリンク)と、ブランチ・コミット・差分(compare)のリンクを付ける。
 - 「実行形式にして」と指示されたときだけ、Python環境のないPC向けのexeも合わせて用意する(ビルドはWindows上で行う。「exe配布」の節を参照)。
 
 ## リポジトリ
 GitHub: orangewhale105/Motion_Tetris(Private)。`.task` モデルとビルド成果物(build/・dist/・*.spec)は .gitignore で除外。
 
 ### 開発の流れ(GitHubで開発)
-- 作業開始前に `git pull`、作業終了時に必ずコミットして `git push`(自宅・職場の複数PCで作業するため)。
+- Claude(クラウド)は作業開始前に `git pull`、作業終了時に必ずコミット・push し、`main` へマージまで行う。Dr. Ishida 側はGit操作をしない。
 - ブランチは当面 `main` のみ。Claude(クラウド)は作業ブランチで変更し、プルリクエストを作って `main` へマージまで行う。
 - コミット前に `python -m py_compile hand_tetris.py` で構文確認。
-- **どのPCでも `start_motion_tetris.bat` をダブルクリック**すれば、最新版の取得(初回はclone、以降はpull)→ ライブラリ・モデルの用意 → 起動まで自動で行う。Dr. Ishida は自宅・職場・外のPCで使うため、手作業のgit操作を求めない。
-  - リポジトリ内に置いた場合はそのフォルダを使う。bat単体で別の場所に置いた場合は `%USERPROFILE%\Downloads\Motion_Tetris`(ダウンロードフォルダ)にcloneする(Dr. Ishidaの指示)。ダウンロードフォルダ直下に以前のモデル(.task)があればコピーして使う。
-  - 新しいPC: GitHubの `start_motion_tetris.bat` のページから「Download raw file」で保存してダブルクリック。必要なのは Git と Python のインストールのみ(初回cloneで GitHub のログイン画面が出る)。
-  - pullできない(オフライン・そのPCで変更あり)ときは、手元の版で起動する。
-  - 自身の更新で途中停止しないよう、%TEMP% にコピーしてから実行する。`.gitattributes` で `*.bat -text`(CRLFのまま保存)。
-  - **Shift_JIS(cp932)で保存し、chcp 65001 は使わない**(UTF-8版で「ダブルクリックしても何も起きない」と報告があったため。原因は未特定)。GitHubの画面では文字化けして見えるが正常。
-  - `cmd /k` で実行するので、エラーで止まっても画面が閉じずに表示が残る。正常終了時は `exit` で閉じる。
-  - bat を入手できないときの代替: Win+R に `cmd /k git clone https://github.com/orangewhale105/Motion_Tetris.git "%USERPROFILE%\Downloads\Motion_Tetris" & "%USERPROFILE%\Downloads\Motion_Tetris\start_motion_tetris.bat"`。
+- **起動はGitを使わない**(Dr. Ishidaの指示): どのPCでも GitHub の `hand_tetris.py` のページで「Download raw file」→ ダウンロードフォルダに保存 → ダブルクリック。
+  - `ensure_packages()`: 足りないライブラリを起動時に `pip install`(exe版では行わない)。
+  - `ensure_model()`: モデル(.task)が無ければ起動時にダウンロードして hand_tetris.py と同じフォルダに保存(exe版は同梱済み)。
+  - 予期しないエラーはメッセージボックスで表示(ダブルクリック起動では画面がすぐ閉じるため)。
+  - 新しいPCで必要なのは Python のインストールのみ(.py をダブルクリックで開ける状態)。
 
 ## ファイル
 | ファイル | 役割 |
 |---|---|
-| hand_tetris.py | 本体(約2020行、単一ファイル) |
+| hand_tetris.py | 本体(約2090行、単一ファイル) |
 | hand_landmarker.task | 手検出モデル(ワイヤーフレーム表示用) |
 | pose_landmarker_lite.task | 姿勢検出モデル(操作・肩角度用) |
-| start_motion_tetris.bat | 起動用。最新版の取得・ライブラリ/モデルの用意・起動を自動で行う |
 | build_exe_v3.bat | exeビルド用(モデルは自動ダウンロード) |
 
 プロジェクト名は「モーションテトリス」。ファイル名・exe名(HandTetris)・ウィンドウタイトルは旧称のまま。改名するなら hand_tetris.py、bat、HandTetris.spec をまとめて直す。
@@ -45,7 +41,7 @@ pip install opencv-python mediapipe numpy pygame pillow
 python hand_tetris.py
 ```
 モデル2つを同じフォルダに置く。URLは hand_tetris.py 冒頭のdocstringにある。
-開発PCはWindows、Python 3.13(`C:\Users\user\AppData\Local\Programs\Python\Python313\`、PATH未登録)。作業フォルダは `C:\Users\user\Downloads\Motion_Tetris`(GitHub管理)。ダウンロードフォルダ直下の旧 hand_tetris.py は古い版。
+開発PCはWindows、Python 3.13(`C:\Users\user\AppData\Local\Programs\Python\Python313\`、PATH未登録)。作業フォルダは `C:\Users\user\Downloads`(GitHubからダウンロードした hand_tetris.py を置く)。
 
 ## 操作仕様(現行)
 カメラに全身(股関節〜足首、万歳しても収まる高さ)が映る距離に立つ。
@@ -96,10 +92,11 @@ python hand_tetris.py
 - **未確認**: 左右ステップ誤認識の修正後の動作、キャリブレーション導入後のスクワット反応、Esc/「×」終了、万歳のハードドロップ。
 - **未確認(2026-11 の演出追加分)**: ジャンプでのスタート、Tポーズでのキャリブレーション、効果音・歓声・拍手の聞こえ方、実機のフレームレート、ランクのしきい値の妥当性。
 - これまでのテストは、合成した姿勢データでの論理検証と、偽カメラで main() を回した画面確認(クラウド環境)のみ。
-- **未確認**: `start_motion_tetris.bat`(Windowsで未実行。初回clone・pull・オフライン時の動作)。
+- **未確認**: .py のダブルクリック起動、起動時の自動インストール・モデル自動ダウンロード(Windowsで未実行。学校ネットワークのプロキシ下での動作も)。
 - ウィンドウタイトルが旧称「Hand Tetris - 手でつかんでテトリス」のまま(未修正)。
 
 ## 一度入れて取りやめたもの(再追加しない)
+- `start_motion_tetris.bat`(Gitで取得して起動するbat)→ 「ダブルクリックしても何も起きない」+ Gitを入れたくない、との指示で削除。
 - 重心(COG)と支持基底面(BOS)の表示 → ユーザーの指示で削除。
 - 手のピンチ・回内回外・ジャンプによるブロック操作 → 全身操作への仕様変更で廃止(ジャンプはハードドロップを万歳に変更)。ジャンプはゲームスタート用としてのみ再採用(Dr. Ishidaの指示)。
 

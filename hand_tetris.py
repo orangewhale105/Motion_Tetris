@@ -42,7 +42,12 @@
   ・運動の記録: ステップ数・スクワット数・上肢挙上(万歳)数・肩の最大角度・プレイ
     時間を表示します。
 
-【必要なライブラリ】
+【起動のしかた】
+    このファイル(hand_tetris.py)をダブルクリックするだけで起動します(Pythonが必要)。
+    初回は、足りないライブラリを自動でインストールし、モデルファイルを自動で
+    ダウンロードしてこのファイルと同じフォルダに保存します(インターネット接続が必要)。
+
+【必要なライブラリ】(自動でインストールされます)
     pip install opencv-python mediapipe numpy pygame pillow
 
 【必要なモデルファイル】
@@ -50,7 +55,7 @@
         https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task
     (2) pose_landmarker_lite.task (全身ジェスチャー操作・肩関節角度の計測用)
         https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task
-    いずれもこのスクリプトと同じフォルダに置いてください。
+    無ければ起動時に自動でダウンロードします(手動で同じフォルダに置いてもよい)。
 
 【日本語フォント】
     Windowsなら C:/Windows/Fonts/meiryo.ttc(太字は meiryob.ttc)を使います。
@@ -62,7 +67,49 @@ import time
 import math
 import random
 import threading
+import traceback
+import subprocess
+import importlib.util
 from collections import deque
+
+
+def show_error(message):
+    """エラーを表示する。ダブルクリック起動やexe化ではコンソールが見えない/すぐ閉じるため、
+    Windowsではメッセージボックスでも通知する。"""
+    print(message)
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(0, message, "モーションテトリス", 0x10)
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# 起動準備: 足りないライブラリを自動インストール(exe版では不要なので行わない)
+# ---------------------------------------------------------------------------
+REQUIRED_PACKAGES = [("cv2", "opencv-python"), ("mediapipe", "mediapipe"), ("numpy", "numpy"),
+                     ("pygame", "pygame"), ("PIL", "pillow")]
+
+
+def ensure_packages():
+    if getattr(sys, "frozen", False):
+        return
+    missing = [pip_name for mod, pip_name in REQUIRED_PACKAGES if importlib.util.find_spec(mod) is None]
+    if not missing:
+        return
+    print("必要なライブラリをインストールしています(初回のみ・数分かかります):", " ".join(missing))
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", *missing])
+    except Exception:
+        show_error("ライブラリのインストールに失敗しました:\n  " + " ".join(missing) +
+                   "\n\nインターネット接続を確認してから、もう一度起動してください。\n"
+                   "(手動の場合: python -m pip install " + " ".join(missing) + ")")
+        sys.exit(1)
+    importlib.invalidate_caches()
+
+
+ensure_packages()
 
 import cv2
 import numpy as np
@@ -698,6 +745,29 @@ def resolve_model_path(filename):
 
 
 MODEL_PATH = resolve_model_path("hand_landmarker.task")
+HAND_MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
+                  "hand_landmarker/float16/latest/hand_landmarker.task")
+POSE_MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/pose_landmarker/"
+                  "pose_landmarker_lite/float16/latest/pose_landmarker_lite.task")
+
+
+def ensure_model(path, url):
+    """モデルファイルが無ければダウンロードして path に保存する(exe版は同梱済みなので行わない)。
+    失敗しても例外は出さず、後のFileNotFoundErrorで手動ダウンロードの案内を出す。"""
+    if os.path.exists(path) or getattr(sys, "frozen", False):
+        return
+    print(f"モデルファイルをダウンロードしています: {os.path.basename(path)}")
+    tmp = path + ".download"
+    try:
+        import urllib.request
+        urllib.request.urlretrieve(url, tmp)
+        os.replace(tmp, path)
+    except Exception as e:
+        print("ダウンロードに失敗しました:", e)
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 # 手の21ランドマーク間の接続トポロジー(MediaPipe Hand標準の骨格構造)
 HAND_CONNECTIONS = [
@@ -1759,20 +1829,11 @@ def draw_result_screen(frame, texts, game, stats, result, el, now, cx, w, h, S, 
 # ---------------------------------------------------------------------------
 # メインループ
 # ---------------------------------------------------------------------------
-def show_error(message):
-    """エラーを表示する。exe化(コンソール無し)ではprintが見えないため、
-    Windowsではメッセージボックスでも通知する。"""
-    print(message)
-    if sys.platform == "win32":
-        try:
-            import ctypes
-            ctypes.windll.user32.MessageBoxW(0, message, "Hand Tetris", 0x10)
-        except Exception:
-            pass
-
-
 def main():
     global CELL
+
+    ensure_model(MODEL_PATH, HAND_MODEL_URL)
+    ensure_model(POSE_MODEL_PATH, POSE_MODEL_URL)
 
     try:
         hand_ctrl = HandController()
@@ -2020,4 +2081,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        # ダブルクリック起動では画面がすぐ閉じるので、エラー内容をメッセージボックスで出す
+        show_error("エラーが発生しました。この画面の内容を開発者に伝えてください。\n\n" + traceback.format_exc())
+        sys.exit(1)
