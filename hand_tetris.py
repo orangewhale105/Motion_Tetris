@@ -43,7 +43,8 @@
     時間を表示します。
 
 【起動のしかた】
-    このファイル(hand_tetris.py)をダブルクリックするだけで起動します(Pythonが必要)。
+    GitHub の Releases(https://github.com/orangewhale105/Motion_Tetris/releases/latest)から
+    hand_tetris.py をダウンロードし、ダブルクリックするだけで起動します(Pythonが必要)。
     初回は、足りないライブラリを自動でインストールし、モデルファイルを自動で
     ダウンロードしてこのファイルと同じフォルダに保存します(インターネット接続が必要)。
 
@@ -60,6 +61,10 @@
 【日本語フォント】
     Windowsなら C:/Windows/Fonts/meiryo.ttc(太字は meiryob.ttc)を使います。
 """
+
+# 版の番号。変更して main に取り込むと、GitHub の Releases に新しい版として自動で置かれる
+# (.github/workflows/release.yml)。変更内容は CHANGELOG.md に書く。
+VERSION = "2.1"
 
 import os
 import sys
@@ -1670,7 +1675,7 @@ def draw_title_screen(frame, texts, now, cx, w, h, S, body_ctrl, pose_visible, b
     if best_score > 0:
         texts.add(f"本日のハイスコア: {best_score:,}", (cx, sy + 155 * S), 30 * S, (200, 220, 255),
                   "center", "middle", stroke=2)
-    texts.add("Q / Esc / ×: 終了", (cx, h - 40 * S), 22 * S, (200, 200, 200), "center", "middle", stroke=2)
+    texts.add(f"Ver {VERSION}    Q / Esc / ×: 終了", (cx, h - 40 * S), 22 * S, (200, 200, 200), "center", "middle", stroke=2)
 
 
 def draw_exercise_panel(frame, texts, stats, x, y, S, now):
