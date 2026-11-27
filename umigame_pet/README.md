@@ -1,5 +1,7 @@
 # ウミガメ群体(デスクトップの人工生命ペット)
 
+画面の表示はすべて英語(Ver 1.1.0〜)。
+
 `umigame_pet.py` 1ファイル。Python 標準ライブラリ(tkinter)だけで動く。`pip install` 不要。
 起動: `umigame_pet.py` をダブルクリック、または `python umigame_pet.py`。
 
@@ -24,9 +26,9 @@
 
 ## 保存(Google ドライブ)
 閉じたとき(と5分ごと)に `colony.json` を保存。次回起動時、閉じていた実時間ぶん(最大7日)群体の時間を進め、
-「留守の間に◯経過 誕生◯ 死亡◯」と表示する。
+「While you were away: ◯ passed  Born ◯  Died ◯」と表示する。
 保存先は「パソコン版 Google ドライブ」の同期フォルダ(`G:\マイドライブ\UmigamePet\` など)を自動で探す。
-見つからなければ `ホーム\UmigamePet\` に保存し、タイトルに「ローカル保存」と出る。
+見つからなければ `ホーム\UmigamePet\` に保存し、タイトルに「(saved locally)」と出る。
 環境変数 `UMIGAME_SAVE_DIR` で保存先を指定できる。
 
 ## テスト

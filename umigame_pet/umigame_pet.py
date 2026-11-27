@@ -16,7 +16,7 @@
   1) 環境変数 UMIGAME_SAVE_DIR
   2) Google ドライブの同期フォルダ(G:\\マイドライブ, G:\\My Drive, ~/Google Drive/My Drive,
      macOS の ~/Library/CloudStorage/GoogleDrive-*/My Drive など)の下の UmigamePet/
-  3) 見つからなければ ホーム/UmigamePet/ (ウインドウのタイトルに「ローカル保存」と出る)
+  3) 見つからなければ ホーム/UmigamePet/ (ウインドウのタイトルに「(saved locally)」と出る)
 """
 
 import colorsys
@@ -29,7 +29,7 @@ import string
 import sys
 import time
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 # ---------------------------------------------------------------- 時間・世界の定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに処理だけ進める
@@ -808,7 +808,7 @@ class App:
         self.tk = tk
         self.save_dir, self.on_drive = find_save_dir()
         self.root = tk.Tk()
-        self.root.title("ウミガメ群体" + ("" if self.on_drive else "(ローカル保存)"))
+        self.root.title("Sea Turtle Colony" + ("" if self.on_drive else " (saved locally)"))
         self.root.geometry("520x340")
         self.root.minsize(240, 160)
         self.canvas = tk.Canvas(self.root, width=520, height=340, bg="#0b2a4a",
@@ -821,11 +821,11 @@ class App:
         if world is None:
             self.world = World(520, 340)
             self.world.seed()
-            self.banner = "ようこそ。ウミガメの群体が生まれました"
+            self.banner = "Welcome! A new sea turtle colony is born"
         else:
             self.world = world
             b, d = world.advance_offline(away)
-            self.banner = "留守の間に %s 経過   誕生 %d   死亡 %d" % (fmt_dur(away), b, d)
+            self.banner = "While you were away: %s passed   Born %d   Died %d" % (fmt_dur(away), b, d)
         self.banner_t = 8.0
 
         self.items = {}       # turtle.id -> (image_item, emote_item, cache dict, last_key)
@@ -897,7 +897,7 @@ class App:
     def toggle_topmost(self, e=None):
         self.topmost = not self.topmost
         self.root.attributes("-topmost", self.topmost)
-        self.banner, self.banner_t = ("最前面に固定" if self.topmost else "最前面を解除"), 1.5
+        self.banner, self.banner_t = ("Always on top: ON" if self.topmost else "Always on top: OFF"), 1.5
 
     def on_resize(self, e):
         self.world.resize(e.width, e.height)
@@ -907,7 +907,7 @@ class App:
         try:
             save_world(self.world, self.save_dir)
         except OSError as ex:
-            print("保存できませんでした:", ex, file=sys.stderr)
+            print("Could not save:", ex, file=sys.stderr)
         self.root.destroy()
 
     # ---- 毎フレーム
@@ -985,9 +985,9 @@ class App:
             self.hud_t = 1.0
             n = sum(t.alive for t in w.turtles)
             o = w.oldest()
-            c.itemconfigure(self.hud, text="個体 %d  卵 %d  最大世代 %d  誕生 %d  死亡 %d  合体 %d%s" % (
+            c.itemconfigure(self.hud, text="Turtles %d  Eggs %d  Max gen %d  Born %d  Died %d  Merged %d%s" % (
                 n, len(w.eggs), w.max_gen, w.births, w.deaths, w.merges,
-                ("  最長老 %s" % fmt_dur(o.age)) if o else ""))
+                ("  Oldest %s" % fmt_dur(o.age)) if o else ""))
         if self.banner:
             self.banner_t -= dt
             c.itemconfigure(self.bann, text=self.banner if self.banner_t > 0 else "")
@@ -1017,12 +1017,12 @@ class App:
 def fmt_dur(sec):
     sec = int(sec)
     if sec < 60:
-        return "%d秒" % sec
+        return "%ds" % sec
     if sec < 3600:
-        return "%d分" % (sec // 60)
+        return "%dm" % (sec // 60)
     if sec < 86400:
-        return "%d時間%d分" % (sec // 3600, sec % 3600 // 60)
-    return "%d日%d時間" % (sec // 86400, sec % 86400 // 3600)
+        return "%dh %dm" % (sec // 3600, sec % 3600 // 60)
+    return "%dd %dh" % (sec // 86400, sec % 86400 // 3600)
 
 
 def main():
@@ -1034,7 +1034,7 @@ def main():
         print(msg, file=sys.stderr)
         try:   # ダブルクリック起動ではコンソールがすぐ閉じるので画面に出す
             import tkinter.messagebox as mb
-            mb.showerror("ウミガメ群体", msg)
+            mb.showerror("Sea Turtle Colony", msg)
         except Exception:
             pass
 
