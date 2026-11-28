@@ -49,7 +49,7 @@ import string
 import sys
 import time
 
-VERSION = "4.3.0"
+VERSION = "4.4.0"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
@@ -76,25 +76,29 @@ PLANT_MIN = 0.08              # 食べ尽くされても根が残る量
 PLANT_EDIBLE = 0.18           # これより少ない水草は食べられない(根からの再生を待つ)
 PLANT_BASE = 0.00003           # 根からの再生(1/秒)
 PLANT_BITE = 0.22
+PLANT_SCARS = 3              # 根元まで食べられるのがこの回数続くと枯れる(食べ過ぎで藻場が消える)
+PLANT_HEAL = 20 * 60         # これだけ食べられなければ、傷が1つ治る
+SPROUT_GAP = (300, 600)       # ひとりでに芽が出る間隔(秒)。食べられなければ育って新しい藻場になる
 PLANT_SPREAD = 1 / 120.0       # 茂った水草がすぐ隣に広がる確率(1/秒)→ 群生する
 JELLY_INTERVAL = 180.0
 JELLY_MAX = 5
 JELLY_DROP_MAX = 12
 JELLY_ENERGY = 0.40
 
-SHARK_GAP = (2 * 3600, 4 * 3600)    # まれ(夕方〜夜は少し出やすい)
+SHARK_GAP = (25 * 60, 35 * 60)      # 約30分に1回(いちばんまれ)
 SHARK_STAY = 70.0
 SHARK_PREY_SCALE = 4
 SHARK_SIGHT = 140.0
 TURTLE_ALERT = 170.0
 SHARK_ZONE = 0.6
 
-VISITORS = {   # 間隔(秒)・滞在(秒)・場所・出る時間帯
-    "dolphin": {"gap": (3 * 3600, 6 * 3600), "stay": 120, "zone": "sea", "when": "day", "friendly": True},
-    "manta": {"gap": (4 * 3600, 8 * 3600), "stay": 160, "zone": "sea", "when": "daydusk", "friendly": True},
-    "hermit": {"gap": (2 * 3600, 4 * 3600), "stay": 240, "zone": "beach", "when": "any", "friendly": False},
-    "coconut": {"gap": (3 * 3600, 6 * 3600), "stay": 300, "zone": "beach", "when": "night", "friendly": False},
+VISITORS = {   # 間隔(秒)・滞在(秒)・場所・出る時間帯。サメ(SHARK_GAP)→イルカ→マンタ→ヤシガニ→ヤドカリ の順にまれ
+    "dolphin": {"gap": (15 * 60, 25 * 60), "stay": 90, "zone": "sea", "when": "day", "friendly": True},
+    "manta": {"gap": (12 * 60, 18 * 60), "stay": 110, "zone": "sea", "when": "daydusk", "friendly": True},
+    "coconut": {"gap": (60, 120), "stay": 45, "zone": "beach", "when": "night", "friendly": False},
+    "hermit": {"gap": (40, 80), "stay": 45, "zone": "beach", "when": "any", "friendly": False},
 }
+VISIT_LOG_GAP = 300           # よく来る訪問者は、イベント欄には5分に1回だけ書く
 BIG_WAVE_GAP = (15 * 60, 40 * 60)
 N_WAVES = 8
 N_SCHOOLS = 3
@@ -487,8 +491,13 @@ class Egg:
 class Plant:
     kind = "plant"
 
-    def __init__(self, x, y, b=0.3):
+    def __init__(self, x, y, b=0.3, m=None):
         self.x, self.y, self.b = x, y, b
+        self.m = m                # 属する藻場の番号
+        self.scars = 0            # 根元まで食べられた回数(3回で枯れる)
+        self.scar_t = 0.0
+        self.age = 0.0
+        self.life = random.uniform(4, 8) * HOUR   # 寿命がくると枯れて、藻場は少しずつ移動する
         self.gone = False
 
     @property
@@ -616,13 +625,17 @@ class World:
         self.eggs = []
         self.plants = []
         self.reefs = []
-        self.meadows = []
+        self.meadows = {}         # 藻場の番号 → {x, y, r, n, dir, big}
+        self.next_meadow = 0
         self.meadow_changed = False
+        self.meadow_t = 5.0
+        self.sprout_t = random.uniform(*SPROUT_GAP)
         self.schools = []
         self.fish = []
         self.jellies = []
         self.visitors = []
         self.vis_t = {k: random.uniform(*v["gap"]) * random.uniform(0.1, 0.6) for k, v in VISITORS.items()}
+        self.vis_log = {}
         self.shark = None
         self.shark_t = random.uniform(*SHARK_GAP)
         self.waves = [Wave(self, first=True) for _ in range(N_WAVES)]
@@ -707,45 +720,74 @@ class World:
             for _ in range(FISH_PER_SCHOOL):
                 self.fish.append(Fish(s, s.home.x + random.uniform(-20, 20), s.home.y + random.uniform(-15, 15)))
 
+    def _free_spot(self, x, y, spacing=10):
+        return (self.in_water(x, y + 12) and 12 < x < self.w - 12 and y > 12 and not self._near_reef(x, y)
+                and all((q.x - x) ** 2 + (q.y - y) ** 2 > spacing * spacing for q in self.plants))
+
+    def new_meadow(self, x, y):
+        self.next_meadow += 1
+        self.meadows[self.next_meadow] = {"x": x, "y": y, "r": 8.0, "n": 1,
+                                          "dir": random.uniform(0, math.tau), "big": False}
+        return self.next_meadow
+
     def seed_meadows(self):
-        """水草が群生する藻場(meadow)を決める。サンゴ・岩・ほかの藻場と重ならない所。"""
-        self.meadows = []
+        """最初の藻場の中心を決める(サンゴ・岩・ほかの藻場と重ならない所)。"""
+        centers = []
         for _ in range(200):
-            if len(self.meadows) >= N_MEADOWS:
+            if len(centers) >= N_MEADOWS:
                 break
-            r = random.uniform(*MEADOW_R)
-            x = random.uniform(r + 10, self.w - r - 10)
-            y = random.uniform(self.land_top * 0.2 + r * 0.7, self.land_top * 0.92 - r * 0.7)
-            if any(math.hypot(rf.x - x, rf.y - y) < rf.radius + r + 6 for rf in self.reefs):
+            rr = random.uniform(*MEADOW_R)
+            x = random.uniform(rr + 10, self.w - rr - 10)
+            y = random.uniform(self.land_top * 0.2 + rr * 0.7, self.land_top * 0.92 - rr * 0.7)
+            if any(math.hypot(rf.x - x, rf.y - y) < rf.radius + rr + 6 for rf in self.reefs):
                 continue
-            if any(math.hypot(mx - x, my - y) < mr + r + 12 for mx, my, mr in self.meadows):
+            if any(math.hypot(cx - x, cy - y) < cr + rr + 12 for cx, cy, cr in centers):
                 continue
-            self.meadows.append([x, y, r])
+            centers.append((x, y, rr))
+        return [(self.new_meadow(x, y), x, y, rr) for x, y, rr in centers]
 
     def meadow_at(self, x, y):
-        for m in self.meadows:
-            if (m[0] - x) ** 2 + ((m[1] - y) / 0.7) ** 2 < m[2] ** 2:
-                return m
-        return None
-
-    def _meadow_spot(self, m, plants):
-        """藻場の中の空いた場所(ほかの株と 11px 以上離す)。"""
-        for _ in range(12):
-            a, d = random.uniform(0, math.tau), m[2] * math.sqrt(random.random()) * 0.92
-            x, y = m[0] + math.cos(a) * d, m[1] + math.sin(a) * d * 0.7
-            if all((q.x - x) ** 2 + (q.y - y) ** 2 > 121 for q in plants):
-                return x, y
+        for mid, m in self.meadows.items():
+            if m["n"] >= 3 and (m["x"] - x) ** 2 + ((m["y"] - y) / 0.75) ** 2 < (m["r"] + 6) ** 2:
+                return mid
         return None
 
     def seed_plants(self, n=PLANT_START):
         """水草は藻場にかたまって(群生して)生える。"""
-        if not getattr(self, "meadows", None):
-            self.seed_meadows()
+        groups = self.seed_meadows()
         for i in range(n):
-            m = self.meadows[i % len(self.meadows)]
-            spot = self._meadow_spot(m, self.plants)
-            if spot:
-                self.plants.append(Plant(spot[0], spot[1], random.uniform(0.4, 0.95)))
+            mid, cx, cy, rr = groups[i % len(groups)]
+            for _ in range(15):
+                a, d = random.uniform(0, math.tau), rr * math.sqrt(random.random()) * 0.9
+                x, y = cx + math.cos(a) * d, cy + math.sin(a) * d * 0.7
+                if self._free_spot(x, y, 11):
+                    self.plants.append(Plant(x, y, random.uniform(0.4, 0.95), mid))
+                    break
+        self._update_meadows(log=False)
+
+    def _update_meadows(self, log=True):
+        """藻場の形を水草の株から計算し直す(株が増えたり食べられたりすると、藻場は少しずつ動く)。"""
+        members = {}
+        for p in self.plants:
+            members.setdefault(p.m, []).append(p)
+        for mid in list(self.meadows):
+            ps = members.get(mid)
+            m = self.meadows[mid]
+            if not ps:
+                if m["big"] and log:
+                    self.event("seaweed", "A seaweed meadow was eaten away...")
+                del self.meadows[mid]
+                continue
+            cx = sum(p.x for p in ps) / len(ps)
+            cy = sum(p.y for p in ps) / len(ps)
+            m["x"], m["y"], m["n"] = cx, cy, len(ps)
+            m["r"] = max(8.0, max(math.hypot(p.x - cx, (p.y - cy) / 0.75) for p in ps) + 4)
+            m["dir"] += random.gauss(0, 0.35)                # 広がる向きがゆっくり変わる
+            if len(ps) >= 3 and not m["big"]:
+                m["big"] = True
+                if log and len(self.meadows) > 1:
+                    self.event("seaweed", "A lone seaweed survived and grew into a new meadow!")
+        self.meadow_changed = True
 
     def _near_reef(self, x, y):
         return any(math.hypot(r.x - x, r.y - y) < r.radius for r in self.reefs)
@@ -814,18 +856,45 @@ class World:
 
     # ---- 生態系
     def _grow_plants(self, dt):
-        new = []
+        new, dead = [], []
         for p in self.plants:
             p.b += (PLANT_GROWTH * p.b + PLANT_BASE) * (1 - p.b) * dt
             p.b = min(1.0, max(PLANT_MIN, p.b))
+            p.age += dt
+            if p.scars >= PLANT_SCARS or p.age > p.life:       # 食べられ過ぎ・寿命で枯れる
+                dead.append(p)
+                continue
+            if p.scars and self.time - p.scar_t > PLANT_HEAL:
+                p.scars -= 1
+                p.scar_t = self.time
             if (p.b > 0.8 and len(self.plants) + len(new) < PLANT_MAX
                     and random.random() < min(1.0, dt * PLANT_SPREAD)):
-                m = self.meadow_at(p.x, p.y)             # 同じ藻場の中に広がる → 群生
-                spot = self._meadow_spot(m, self.plants + new) if m else None
-                if spot:
-                    new.append(Plant(spot[0], spot[1], 0.1))
-                    p.b -= 0.15
+                m = self.meadows.get(p.m)
+                for _ in range(6):                           # すぐ隣へ。藻場の「進む向き」に広がりやすい
+                    a = (m["dir"] + random.gauss(0, 1.1)) if m and random.random() < 0.65 else random.uniform(0, math.tau)
+                    d = random.uniform(10, 17)
+                    x, y = p.x + math.cos(a) * d, p.y + math.sin(a) * d * 0.75
+                    crowd = sum(1 for q in self.plants if (q.x - x) ** 2 + (q.y - y) ** 2 < 22 * 22)
+                    if crowd < 5 and self._free_spot(x, y) and all((q.x - x) ** 2 + (q.y - y) ** 2 > 100 for q in new):
+                        new.append(Plant(x, y, 0.12, p.m))
+                        p.b -= 0.15
+                        break
+        if dead:
+            self.plants = [p for p in self.plants if p not in dead]
         self.plants += new
+        self.sprout_t -= dt                                  # ひとりでに芽が出る
+        if self.sprout_t <= 0:
+            self.sprout_t = random.uniform(*SPROUT_GAP)
+            if len(self.plants) < PLANT_MAX:                # 空きがあるときだけ
+                for _ in range(10):
+                    x, y = self.water_point(20)
+                    if self._free_spot(x, y, 25):
+                        self.plants.append(Plant(x, y, 0.12, self.new_meadow(x, y)))
+                        break
+        self.meadow_t -= dt
+        if self.meadow_t <= 0 or dead:
+            self.meadow_t = 5.0
+            self._update_meadows()
 
     def _jellies(self, dt):
         self.jelly_t += dt
@@ -850,13 +919,12 @@ class World:
             self.fx.append(("splash", x, y))
 
     def drop_plant(self, x, y):
-        """Shift+クリック: 水草を植える。藻場の外なら新しい藻場ができる。"""
+        """Shift+クリック: 水草を植える。藻場の中ならその藻場に、外なら新しい芽になる。"""
         if len(self.plants) >= PLANT_MAX + 6 or not self.in_water(x, y + 10):
             return
-        if self.meadow_at(x, y) is None and len(self.meadows) < N_MEADOWS + 4:
-            self.meadows.append([x, y, MEADOW_R[0]])
-            self.meadow_changed = True
-        self.plants.append(Plant(x, y, 0.15))
+        mid = self.meadow_at(x, y)
+        self.plants.append(Plant(x, y, 0.3, mid if mid is not None else self.new_meadow(x, y)))
+        self._update_meadows(log=False)
 
     # ---- 波(大波・サーフィン)
     def _waves(self, dt):
@@ -867,6 +935,13 @@ class World:
             self.event("wave", "A big wave is coming!")
         waves = self.waves + ([self.big_wave] if self.big_wave else [])
         alive = [t for t in self.turtles if t.alive]
+        bw = self.big_wave
+        if bw is not None:                   # 大波が来たら、遊び好きのカメは波をつかまえに行く
+            for t in alive:
+                if (t.state == "swim" and self.playful(t) and t.energy > 0.3 and t.id not in bw.hit
+                        and t.y > bw.y + 10 and self.in_water(t.x, t.y)):
+                    t.state, t.surf = "catch", bw
+                    t.say("star", 1.2)
         for wv in waves:
             wv.y += wv.sp * dt
             wv.x += math.sin(self.time * 0.3 + wv.ph) * 2 * dt
@@ -882,11 +957,17 @@ class World:
                 wv.hit.add(t.id)
                 self._wave_hits(wv, t)
 
+    @staticmethod
+    def playful(t):
+        """遊び好き: 活発・気まま・ごきげんなカメ。"""
+        g = t.g
+        return g["whim"] > 0.55 or g["activity"] > 0.65 or (t.joy > 0.6 and g["care"] > 0.3)
+
     def _wave_hits(self, wv, t):
         if t.state in ("lay", "nest", "flee_shark", "surf", "dead"):
             return
         g = t.g
-        if wv.big and t.y > self.land_top * 0.3:
+        if wv.big and t.y > self.land_top * 0.3 and t.state != "catch":
             # 大波: 小さいカメほどひっくり返りやすい(寝ているカメも)
             if random.random() < (0.45 if t.scale <= 2 else 0.2):
                 t.state, t.state_t = "flipped", 3.0
@@ -895,14 +976,15 @@ class World:
                 wv.flipped += 1
                 self.sfx.append("flip")
                 return
-        surfer = (g["activity"] > 0.6 or g["whim"] > 0.6) and t.energy > 0.4 and t.joy > 0.2
-        if t.state == "swim" and surfer and random.random() < (0.6 if wv.big else 0.07):
-            t.state, t.surf = "surf", wv
+        if t.state == "catch" or (t.state == "swim" and self.playful(t) and t.energy > 0.4
+                                  and random.random() < (0.6 if wv.big else 0.07)):
+            t.state, t.surf = "surf", wv               # 波に乗って岸へ向かう
             wv.riders.add(t.id)
             t.say("star", 1.5)
-            if wv.big or self.time - self.surf_log_t > 180:
+            self.sfx.append("whoosh")
+            if not wv.big and self.time - self.surf_log_t > 180:
                 self.surf_log_t = self.time
-                self.event("surf", "%s is surfing%s!" % (self.tag(t), " the big wave" if wv.big else ""))
+                self.event("surf", "%s is surfing!" % self.tag(t))
 
     def _wave_end(self, wv):
         for tid in list(wv.riders):
@@ -912,6 +994,13 @@ class World:
                 t.joy = min(1.0, t.joy + 0.3)
                 t.say("star", 1.5)
         if wv.big:
+            if wv.riders:
+                ids = sorted(wv.riders)
+                self.event("surf", "%s rode the big wave to the shore!" % (
+                    ", ".join("#%d" % i for i in ids[:4]) + (" and %d more" % (len(ids) - 4) if len(ids) > 4 else "")))
+            for t in self.turtles:
+                if t.state == "catch":
+                    t.state, t.surf = "swim", None
             if wv.flipped:
                 self.event("wave", "The big wave flipped %d turtle%s over!"
                            % (wv.flipped, "s" if wv.flipped > 1 else ""))
@@ -983,12 +1072,17 @@ class World:
             v = Visitor(kind, -40 if left else self.w + 40, y, sp if left else -sp)
             msg = {"dolphin": "A dolphin came to visit!", "manta": "A manta ray is gliding by"}[kind]
         else:
-            x, y = self.beach_point()
-            v = Visitor(kind, -15 if left else self.w + 15, min(y, self.h - 12), 5 if left else -5)
+            sx = random.uniform(40, self.w - 40)
+            sh = self.shore(sx)
+            y = sh + (self.h - sh) * random.uniform(0.18, 0.32)    # 砂浜の上の方(表示と重ならない)
+            v = Visitor(kind, -15 if left else self.w + 15, y, 9 if left else -9)
             msg = {"hermit": "A hermit crab is walking on the beach",
                    "coconut": "A coconut crab came out on the night beach"}[kind]
         self.visitors.append(v)
-        self.event("visitor", msg)
+        v.flavor_t = random.uniform(15, 50)
+        if self.time - self.vis_log.get(kind, -1e9) > (VISIT_LOG_GAP if kind in ("hermit", "coconut") else 0):
+            self.vis_log[kind] = self.time
+            self.event("visitor", msg)
 
     def _move_visitor(self, v, dt):
         v.t += dt
@@ -996,6 +1090,10 @@ class World:
         cfg = VISITORS[v.kind]
         if v.t > cfg["stay"] or (v.kind == "coconut" and self.night < 0.3):
             v.leaving = True
+        v.flavor_t = getattr(v, "flavor_t", 30.0) - dt
+        if v.flavor_t <= 0 and not v.leaving:
+            v.flavor_t = 1e9
+            self._visitor_moment(v)
         if cfg["zone"] == "sea":
             if v.kind == "dolphin":
                 v.y = v.y0 + 30 * math.sin(v.t * 1.3)
@@ -1026,6 +1124,27 @@ class World:
             self.event("play", "%d turtle%s joined the %s to play!" % (
                 len(v.players), "s" if len(v.players) > 1 else "", "dolphin" if v.kind == "dolphin" else "manta"))
 
+    def _visitor_moment(self, v):
+        """訪問者のちょっとした出来事(イルカのジャンプ、マンタの宙返り、ヤドカリの引っ越しなど)。"""
+        k = v.kind
+        if k in ("hermit", "coconut") and self.time - self.vis_log.get(k + "!", -1e9) < VISIT_LOG_GAP:
+            return
+        self.vis_log[k + "!"] = self.time
+        if k == "dolphin":
+            self.fx += [("splash", v.x, v.y), ("splash", v.x + 12, v.y + 4)]
+            self.event("visitor", "The dolphin leaped out of the water!")
+            for t in self.turtles:
+                if t.alive and math.hypot(t.x - v.x, t.y - v.y) < 200:
+                    t.say("star", 1.2, force=False)
+        elif k == "manta":
+            self.fx.append(("ripple", v.x, v.y))
+            self.event("visitor", "The manta ray did a graceful somersault")
+        elif k == "hermit":
+            v.shell = 1 - getattr(v, "shell", 0)
+            self.event("visitor", "The hermit crab moved into a new shell!")
+        elif k == "coconut":
+            self.event("visitor", "The coconut crab is dragging a coconut across the sand")
+
     def _recruit_players(self, v):
         for t in self.turtles:
             if (not t.alive or t.state != "swim" or t.id in v.players or t.energy < 0.35
@@ -1042,7 +1161,7 @@ class World:
     # ---- サメ(まれに沖に現れ、大きなカメを狙う)
     def _shark_step(self, dt):
         if self.shark is None:
-            self.shark_t -= dt * (1.0 + self.night)
+            self.shark_t -= dt * (1.0 + 0.3 * self.night)
             if self.shark_t <= 0:
                 self.shark_t = random.uniform(*SHARK_GAP)
                 left = random.random() < 0.5
@@ -1053,6 +1172,8 @@ class World:
         sh = self.shark
         sh.t += dt
         sh.anim += dt
+        if 20 <= sh.t < 20 + dt and sh.target is None:
+            self.event("shark", "The shark is circling offshore...")
         limit = self.land_top * SHARK_ZONE
         if sh.t > SHARK_STAY and not sh.leaving:
             sh.leaving, sh.target = True, None
@@ -1071,9 +1192,16 @@ class World:
             d = math.hypot(dx, dy) or 1.0
             sp = 46.0
             if d < 22 + tg.radius:
-                self._kill(tg, "a shark attack")
-                tg.dead_t = CORPSE_TIME - 1.0
-                self.fx.append(("bite", tg.x, tg.y))
+                if random.random() < 0.35:
+                    self._kill(tg, "a shark attack")
+                    tg.dead_t = CORPSE_TIME - 1.0
+                    self.fx.append(("bite", tg.x, tg.y))
+                else:                                      # 間一髪で逃げる
+                    tg.say("surprise", 1.5)
+                    tg.state, tg.state_t = "flee_shark", 3.0
+                    self.fx.append(("splash", tg.x, tg.y))
+                    self.sfx.append("chomp")
+                    self.event("shark", "%s narrowly escaped the shark!" % self.tag(tg))
                 sh.leaving, sh.target = True, None
         else:
             dx = 1.0 if sh.vx >= 0 else -1.0
@@ -1297,6 +1425,10 @@ class World:
             wv = t.surf
             if wv is None or t.id not in wv.riders or not water:
                 t.state, t.surf = "swim", None
+        elif st == "catch":
+            wv = t.surf
+            if wv is None or wv is not self.big_wave or t.id in wv.hit or wv.y > t.y + 8:
+                t.state, t.surf = "swim", None
         elif st == "play":
             v = t.vis
             if v is None or v.gone or v.leaving or t.state_t <= 0 or t.energy < 0.25:
@@ -1430,6 +1562,9 @@ class World:
                 return
             bite = min(PLANT_BITE, f.b - PLANT_MIN)
             f.b -= bite
+            if f.b <= PLANT_MIN + 0.02:
+                f.scars += 1
+                f.scar_t = self.time
             t.energy += bite * (1.5 if t.herbivore else 0.9)
         else:
             f.gone = True
@@ -1470,6 +1605,9 @@ class World:
             n0 = math.hypot(dx, dy) or 1.0
             dx, dy = dx / n0, dy / n0 + 0.9
             mul = 1.6
+        elif st == "catch" and t.surf:
+            dx, dy = random.uniform(-0.1, 0.1), (t.surf.y + 2 - t.y)     # 沖の大波へ向かって泳ぐ
+            mul = 1.5
         elif st == "surf" and t.surf:
             wv = t.surf
             t.y += (wv.y + 4 - t.y) * min(1.0, dt * 6)      # 波頭に乗って砂浜の方へ
@@ -1818,7 +1956,7 @@ class World:
                "flee_shark": "fleeing from the shark!", "breathe": "poking its head out for air",
                "petted": "enjoying being petted", "to_bed": "heading to bed",
                "to_clean": "going to the cleaning station", "cleaning": "being cleaned by fish",
-               "surf": "surfing!", "play": "playing with the visitor"}
+               "surf": "surfing!", "catch": "paddling out to catch the big wave", "play": "playing with the visitor"}
         if not self.in_water(t.x, t.y) and t.state == "swim":
             st = "crawling to the sea"
         else:
@@ -1881,11 +2019,15 @@ class World:
                 return ["Rocks", "A quiet place for turtles to sleep at night"]
         for p in self.plants:
             if math.hypot(p.x - x, p.y - y) < 5 + 4 * p.stage:
-                return ["Seaweed  %d%%" % round(p.b * 100), "Grows in meadows; regrows when not overgrazed"]
-        m = self.meadow_at(x, y)
-        if m:
-            n = sum(1 for p in self.plants if self.meadow_at(p.x, p.y) is m)
-            return ["Seaweed meadow (%d plants)" % n, "Herbivores graze here in the morning and evening"]
+                m = self.meadows.get(p.m)
+                lone = m is None or m["n"] < 3
+                return ["%s  %d%%" % ("Lone seaweed sprout" if lone else "Seaweed", round(p.b * 100)),
+                        "If not eaten, it grows into a new meadow" if lone else
+                        ("Overgrazed! It may die" if p.scars else "Grows back when left alone")]
+        mid = self.meadow_at(x, y)
+        if mid is not None:
+            return ["Seaweed meadow (%d plants)" % self.meadows[mid]["n"],
+                    "It grows, gets eaten and slowly creeps along"]
         return None
 
     # ---- 留守中の時間経過(1分刻みでまとめて計算)
@@ -1943,13 +2085,16 @@ class World:
                     break
                 bite = min(PLANT_BITE, p.b - PLANT_MIN)
                 p.b -= bite
+                if p.b <= PLANT_MIN + 0.02:
+                    p.scars += 1
+                    p.scar_t = self.time
                 t.energy += bite * (1.5 if t.herbivore else 0.9)
             t.energy = min(1.0, t.energy)
             if t.energy <= 0:
                 self._kill(t, "starvation")
             elif t.age >= t.lifespan:
                 self._kill(t, "old age")
-        if random.random() < dt / (sum(SHARK_GAP) / 2) * 0.5 * (1 + self.night):
+        if random.random() < dt / (sum(SHARK_GAP) / 2) * 0.12:      # サメに食べられるのはまれ
             big = [t for t in self.turtles if t.alive and t.scale >= SHARK_PREY_SCALE]
             if big:
                 self._kill(random.choice(big), "a shark attack")
@@ -1988,7 +2133,8 @@ class World:
         return {"version": VERSION, "w": self.w, "h": self.h,
                 "turtles": [t.to_dict() for t in self.turtles if t.alive],
                 "eggs": [e.to_dict() for e in self.eggs],
-                "plants": [[p.x, p.y, p.b] for p in self.plants], "meadows": self.meadows,
+                "plants": [[p.x, p.y, p.b, p.m] for p in self.plants],
+                "meadows": {str(k): v for k, v in self.meadows.items()}, "next_meadow": self.next_meadow,
                 "reefs": [r.to_list() for r in self.reefs],
                 "births": self.births, "deaths": self.deaths, "laid": self.laid,
                 "merges": self.merges, "splits": self.splits, "max_gen": self.max_gen,
@@ -2011,13 +2157,22 @@ class World:
         for e in wd.eggs:
             if wd.in_water(e.x, e.y):
                 e.x, e.y = wd.beach_point(e.x)
-        wd.plants = [Plant(*p) for p in d.get("plants", [])]
-        wd.meadows = d.get("meadows") or []
-        if not wd.meadows:
-            wd.seed_meadows()
-            wd.plants = [p for p in wd.plants if wd.meadow_at(p.x, p.y)]   # 旧版: 藻場の外の水草は消える
+        wd.plants = [Plant(*p[:4]) for p in d.get("plants", [])]
+        old = d.get("meadows")
+        if isinstance(old, dict) and old:
+            wd.meadows = {int(k): v for k, v in old.items()}
+            wd.next_meadow = d.get("next_meadow", max(wd.meadows))
+        else:                                    # 旧版: 近い株どうしを同じ藻場にまとめる
+            wd.meadows, wd.next_meadow = {}, 0
+            for p in wd.plants:
+                near = [q for q in wd.plants if q.m is not None and (q.x - p.x) ** 2 + (q.y - p.y) ** 2 < 30 * 30]
+                p.m = near[0].m if near else wd.new_meadow(p.x, p.y)
+        for p in wd.plants:
+            if p.m not in wd.meadows:
+                p.m = wd.new_meadow(p.x, p.y)
         if len(wd.plants) < 8:
             wd.seed_plants()
+        wd._update_meadows(log=False)
         for k in ("births", "deaths", "laid", "merges", "splits"):
             setattr(wd, k, d.get(k, 0))
         wd.max_gen = d.get("max_gen", 1)
@@ -2048,9 +2203,7 @@ class World:
             o.y = my(o.y)
         for v in self.visitors:
             v.y0 = my(v.y0)
-        for m in self.meadows:
-            m[0] *= sx
-            m[1] = my(m[1])
+        self._update_meadows(log=False)
         for t in self.turtles:
             if t.nest:
                 t.nest = (t.nest[0] * sx, my(t.nest[1]))
@@ -2222,33 +2375,33 @@ REEF_ART = {
 CORAL_COLORS = (("#ff9fb4", "#d9708a", "#ffd0dc"), ("#ffb27a", "#d9844a", "#ffd9b8"),
                 ("#c9a2ff", "#9a72d6", "#e7d6ff"), ("#ffe27a", "#d6b64a", "#fff2b8"))
 ROCK_COLORS = ("#8395a6", "#5f7182", "#aebdca")
-FISH_ART = {   # 右向き
-    "yellow": ({"X": "#ffe04a", "e": "#222222"}, (".XXX..", "XXeXXX", ".XXX.X")),
-    "blue": ({"X": "#3f7fff", "y": "#ffe04a", "e": "#111111"}, (".XXX..", "XXeXXy", ".XXX.y")),
-    "clown": ({"X": "#ff8a2a", "w": "#ffffff", "e": "#222222"}, (".XwX..", "XwewXX", ".XwX.X")),
+FISH_ART = {   # 右向き(左が尾びれ、右が頭)
+    "yellow": ({"X": "#ffe04a", "e": "#222222"}, ("X.XXX..", "XXXXXeX", "X.XXX..")),
+    "blue": ({"X": "#3f7fff", "y": "#ffe04a", "e": "#111111"}, ("y.XXX..", "yXXXXeX", "y.XXX..")),
+    "clown": ({"X": "#ff8a2a", "w": "#ffffff", "e": "#222222"}, ("X.XwXw.", "XXXwXeX", "X.XwXw.")),
 }
-VIS_ART = {
-    # イルカ(上から、右向き)
+VIS_ART = {   # どれも右向き(右が頭)。左向きは左右反転して使う
+    # イルカ(上から): 左に尾びれ、頭の近くに胸びれ、右端にくちばし
     "dolphin": ({"X": "#86b4dc", "o": "#cfe6f7", "e": "#1c2530"},
-                (("......X.............", ".X...XXX............", "XXXXXXXXXXXXXXXXX...",
-                  "XXoooooooooooooeXXXX", "XXXXXXXXXXXXXXXXX...", ".X...XXX............",
-                  "......X............."),
-                 (".....................", "X....XXX............", ".XXXXXXXXXXXXXXXX...",
-                  "XXoooooooooooooeXXXX", ".XXXXXXXXXXXXXXXX...", "X....XXX............",
-                  "......X............."))),
-    # マンタ(上から、右向き)
-    "manta": ({"X": "#3b4a66", "o": "#5a6c8c", "w": "#e8eef6"},
-              (("....X..........", "...XXX.........", "..XXoXX........", ".XXooXXX.......",
-                "XXXXXXXXXXXXXw.", ".XXooXXX......w", "..XXoXX........", "...XXX.........",
-                "....X.........."),
-               (".....X.........", "....XXX........", "..XXoXX........", "XXXooXXX.......",
-                ".XXXXXXXXXXXXw.", "XXXooXXX......w", "..XXoXX........", "....XXX........",
-                ".....X........."))),
-    # ヤドカリ(横から、右向き)
+                (("X.............XX........", "XX...........XXX........", ".XX.XXXXXXXXXXXXXXXXX...",
+                  "..XXXoooooooooooooooeXXX", ".XX.XXXXXXXXXXXXXXXXX...", "XX...........XXX........",
+                  "X.............XX........"),
+                 ("..............XX........", "X............XXX........", "XXX.XXXXXXXXXXXXXXXXX...",
+                  "..XXXoooooooooooooooeXXX", "XXX.XXXXXXXXXXXXXXXXX...", "X............XXX........",
+                  "..............XX........"))),
+    # マンタ(上から): 左に細い尾、右に頭びれ(2本)、大きな胸びれがはばたく
+    "manta": ({"X": "#3b4a66", "o": "#5a6c8c", "w": "#2c3850", "c": "#4a5c80"},
+              (("........X.........", ".......XXX........", "......XXoXX.......", ".....XXoooXXXc....",
+                "wwwwwXXoooooXXX...", ".....XXoooXXXc....", "......XXoXX.......", ".......XXX........",
+                "........X........."),
+               ("..................", "........X.........", "......XXXX........", ".....XXoooXXXc....",
+                "wwwwwXXoooooXXX...", ".....XXoooXXXc....", "......XXXX........", "........X.........",
+                ".................."))),
+    # ヤドカリ(横から): 左に貝殻、右に目とはさみ
     "hermit": ({"X": "#f2a6c0", "x": "#c97a96", "r": "#e2503c", "e": "#222222"},
                (("..XXX...", ".XxXXX..", "XXxXXXr.", "XXXXXrer", ".rrrrrr.", "r.r.r.r."),
                 ("..XXX...", ".XxXXX..", "XXxXXXr.", "XXXXXrer", ".rrrrrr.", ".r.r.r.r"))),
-    # ヤシガニ(上から)
+    # ヤシガニ(上から、頭が上の絵を右へ回して使う。ヤシガニは前へ歩く)
     "coconut": ({"X": "#5f5fb8", "x": "#3f3f8c", "o": "#8f8fe0", "e": "#ffffff"},
                 (("X.......X", ".X.eee.X.", "..XoooX..", "XXXxxxXXX", "..XxxxX..", ".X.XXX.X.",
                   "X...X...X"),
@@ -2992,9 +3145,15 @@ class App:
         self.vis_img = {}
         for kind, (cols, frames) in VIS_ART.items():
             for f, art in enumerate(frames):
+                if kind == "coconut":                     # 頭を進む向き(右)に
+                    art = tuple("".join(r) for r in rotate(art, 1))
                 sc2 = 3 if kind in ("dolphin", "manta") else 2
                 self.vis_img[(kind, 1, f)] = self._img(art, cols, sc2, sp)
                 self.vis_img[(kind, 3, f)] = self._img(tuple(r[::-1] for r in art), cols, sc2, sp)
+                if kind == "hermit":                     # 引っ越した後の貝殻の色
+                    c2 = dict(cols, X="#ffe08a", x="#d8b050")
+                    self.vis_img[(kind + "2", 1, f)] = self._img(art, c2, sc2, sp)
+                    self.vis_img[(kind + "2", 3, f)] = self._img(tuple(r[::-1] for r in art), c2, sc2, sp)
         self.reef_img = {}
         for piece, art in REEF_ART.items():
             for ci in range(4):
@@ -3094,11 +3253,10 @@ class App:
             y = rnd.uniform(w.shore(x) + 12, w.h - 2)
             self.bg_items.append(c.create_rectangle(x, y, x + 2, y + 2, fill=tint_hex("#e3c98a", k),
                                                     width=0, tags="bg"))
-        for mx, my, mr in w.meadows:            # 藻場の地面(緑がかった砂地)
-            base = mix(water_color(w, my, k), tint_rgb((70, 150, 110), k), 0.35)
-            self.reef_items.append(c.create_oval(mx - mr - 6, my - mr * 0.7 - 5, mx + mr + 6, my + mr * 0.7 + 5,
-                                                 fill=base, outline="", tags="meadow"))
-        w.meadow_changed = False
+        for it in getattr(self, "meadow_items", {}).values():
+            c.delete(it)
+        self.meadow_items = {}
+        self.update_meadows()
         for r in w.reefs:
             base = mix(water_color(w, r.y, k), (40, 60, 70), 0.18) if r.kind == "coral" else \
                 mix(water_color(w, r.y, k), (60, 70, 80), 0.12)
@@ -3110,6 +3268,28 @@ class App:
                                                       image=self.reef_img[(piece, ci)], tags="reef"))
         self.order_dirty = True
         self.layout_ui()
+
+    def update_meadows(self):
+        """藻場の地面(緑がかった砂地)。藻場が動いたり消えたりすると形も変わる。"""
+        c, w, k = self.canvas, self.world, self.bg_tint
+        w.meadow_changed = False
+        seen = set()
+        for mid, m in w.meadows.items():
+            if m["n"] < 3:
+                continue
+            seen.add(mid)
+            x, y, r = m["x"], m["y"], m["r"]
+            box = (x - r - 6, y - r * 0.75 - 5, x + r + 6, y + r * 0.75 + 5)
+            it = self.meadow_items.get(mid)
+            if it is None:
+                base = mix(water_color(w, y, k), tint_rgb((70, 150, 110), k), 0.35)
+                self.meadow_items[mid] = c.create_oval(*box, fill=base, outline="", tags="meadow")
+                self.order_dirty = True
+            else:
+                c.coords(it, *box)
+        for mid in list(self.meadow_items):
+            if mid not in seen:
+                c.delete(self.meadow_items.pop(mid))
 
     def layout_ui(self):
         c, w = self.canvas, self.world
@@ -3383,13 +3563,14 @@ class App:
     def render(self, dt):
         c, w = self.canvas, self.world
         if w.meadow_changed:
-            self.draw_background()
+            self.update_meadows()
         self._sync("plant", w.plants, lambda p: self.plant_img[p.stage], move=False)
         self._sync("egg", w.eggs, lambda e: self.egg_img, move=False)
         self._sync("jelly", w.jellies, lambda o: self.jelly_img)
         self._sync("fish", w.fish, lambda f: self.fish_img[(f.school.kind, 1 if f.vx >= 0 else 3)])
         self._sync("visitor", w.visitors,
-                   lambda v: self.vis_img[(v.kind, v.dir, int(v.anim / (0.25 if v.kind == "dolphin" else 0.5)) % 2)])
+                   lambda v: self.vis_img[(v.kind + ("2" if getattr(v, "shell", 0) else ""), v.dir,
+                                           int(v.anim / (0.25 if v.kind == "dolphin" else 0.5)) % 2)])
 
         seen = set()
         for t in w.turtles:

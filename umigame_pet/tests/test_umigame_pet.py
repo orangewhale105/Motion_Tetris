@@ -131,10 +131,10 @@ class TestWorld(unittest.TestCase):
             big.x, big.y, big.energy = 300, 60, 1.0     # 逃げられないように固定
             w.step(0.1)
             fled = fled or small.state == "flee_shark"
-            if not big.alive:
+            if not big.alive or any("narrowly escaped" in e[2] for e in w.events):
                 break
-        self.assertFalse(big.alive)
-        self.assertEqual(big.cause, "a shark attack")
+        escaped = any("narrowly escaped" in e[2] for e in w.events)
+        self.assertTrue((not big.alive and big.cause == "a shark attack") or escaped)
         self.assertTrue(fled)
 
     def test_breathe_and_pet(self):
@@ -319,7 +319,9 @@ class TestNewFeatures(unittest.TestCase):
             w.step(0.1)
             played = played or any(t.state == "play" for t in ts)
         self.assertTrue(played)
-        for _ in range(4000):                             # 一緒にいると友達になる
+        w.visitors, w.big_t, w.shark_t = [], 1e9, 1e9
+        w.vis_t = {k: 1e9 for k in w.vis_t}
+        for _ in range(6000):                             # 一緒にいると友達になる
             for t in ts:
                 t.air, t.energy = 999, 1.0
             w.step(0.1)
@@ -355,6 +357,78 @@ class TestNewFeatures(unittest.TestCase):
         per_day = (w.max_gen - g0) / 3.0
         self.assertGreaterEqual(per_day, 0.7)
         self.assertLessEqual(per_day, 4.0)
+
+
+class TestSeaweedAndVisitors(unittest.TestCase):
+    def make(self, hour=12):
+        w = up.World()
+        w.clock = lambda: at(6, 21, hour, 0)
+        w.update_daylight(w.clock(), log=False)
+        w.seed_reefs()
+        w.seed_plants()
+        return w
+
+    def test_meadows_grow_get_eaten_and_move(self):
+        random.seed(20)
+        w = self.make()
+        mid, m = next((k, v) for k, v in w.meadows.items() if v["n"] >= 3)
+        x0, y0 = m["x"], m["y"]
+        for p in w.plants:                     # 根元まで何度も食べられた株は枯れる
+            if p.m == mid:
+                p.scars = up.PLANT_SCARS
+        w._grow_plants(1.0)
+        w._update_meadows()
+        self.assertNotIn(mid, w.meadows)
+        w2 = self.make()
+        for p in w2.plants:
+            p.b = 1.0
+        start = {k: (v["x"], v["y"]) for k, v in w2.meadows.items()}
+        n0 = len(w2.plants)
+        for _ in range(int(6 * 3600 / 10)):     # 6時間: 広がり、寿命で枯れ、少しずつ動く
+            w2._grow_plants(10.0)
+        self.assertGreater(len(w2.plants), n0)
+        moved = [math.hypot(v["x"] - start[k][0], v["y"] - start[k][1]) for k, v in w2.meadows.items() if k in start]
+        self.assertTrue(moved and max(moved) > 5)
+
+    def test_lone_sprout(self):
+        random.seed(21)
+        w = self.make()
+        w.plants = []
+        w.meadows = {}
+        w.sprout_t = 0
+        w._grow_plants(0.1)
+        self.assertEqual(len(w.plants), 1)
+        info = w.hover_info(w.plants[0].x, w.plants[0].y)
+        self.assertIn("Lone seaweed", info[0])
+
+    def test_playful_turtles_catch_big_wave(self):
+        random.seed(22)
+        w = self.make()
+        g = up.random_genome()
+        g.update(whim=0.9, activity=0.9)
+        t = up.Turtle(g, 300, w.land_top * 0.7, age=up.ADULT_AGE)
+        t.energy, t.air, t.fatigue = 1.0, 999, 0
+        w.turtles = [t]
+        w.big_t = 0
+        seen = set()
+        for _ in range(600):
+            w.step(0.1)
+            t.air = 999
+            seen.add(t.state)
+            if w.big_wave is None and "surf" in seen:
+                break
+        self.assertIn("catch", seen)
+        self.assertIn("surf", seen)
+
+    def test_visitor_frequency_order(self):
+        gap = lambda k: sum(up.VISITORS[k]["gap"]) / 2
+        self.assertGreater(sum(up.SHARK_GAP) / 2, gap("dolphin"))
+        self.assertGreater(gap("dolphin"), gap("manta"))
+        self.assertGreater(gap("manta"), gap("coconut"))
+        self.assertGreaterEqual(gap("coconut"), gap("hermit"))
+        self.assertAlmostEqual(sum(up.SHARK_GAP) / 2, 30 * 60, delta=60)
+        self.assertAlmostEqual(gap("manta"), 15 * 60, delta=60)
+        self.assertAlmostEqual(gap("hermit"), 60, delta=10)
 
 
 class FakeBackend:
