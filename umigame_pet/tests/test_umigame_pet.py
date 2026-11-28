@@ -357,5 +357,81 @@ class TestNewFeatures(unittest.TestCase):
         self.assertLessEqual(per_day, 4.0)
 
 
+class FakeBackend:
+    def __init__(self):
+        self.played, self.wave_state = [], None
+
+    def play(self, name):
+        self.played.append(name)
+
+    def waves(self, on):
+        self.wave_state = on
+
+    def tick(self):
+        pass
+
+    def close(self):
+        pass
+
+
+class TestSound(unittest.TestCase):
+    def test_sound_files(self):
+        import wave
+        with tempfile.TemporaryDirectory() as d:
+            paths = up.build_sound_files(d)
+            for name, p in paths.items():
+                with wave.open(p) as f:
+                    self.assertEqual(f.getframerate(), up.SR)
+                    self.assertGreater(f.getnframes(), 0)
+        for name, smp in up.make_sounds().items():
+            self.assertLessEqual(max(abs(v) for v in smp), 1.0, name)    # 音割れしない
+        loop = up.make_wave_loop()
+        self.assertLess(abs(loop[-1] - loop[0]), 0.05)                    # つなぎ目がなめらか
+        self.assertAlmostEqual(len(loop) / up.SR, up.WAVE_LOOP_SEC, delta=0.01)
+
+    def test_toggles_and_rate_limit(self):
+        fb = FakeBackend()
+        snd = up.SoundSystem(True, True, backend=fb)
+        self.assertTrue(fb.wave_state)
+        snd.play("note")
+        snd.play("note")                              # すぐ同じ音は鳴らさない
+        self.assertEqual(fb.played, ["note"])
+        for n in ("flip", "hatch", "lay", "death", "shark"):
+            snd.play(n)
+        self.assertLessEqual(len(fb.played), 4)       # 1秒に4つまで
+        snd.set_fx(False)
+        fb.played.clear()
+        time.sleep(1.05)
+        snd.play("splash")
+        self.assertEqual(fb.played, [])
+        snd.set_waves(False)
+        self.assertFalse(fb.wave_state)
+
+    def test_event_mapping_and_world_sfx(self):
+        self.assertEqual(up.event_sound("shark", "A shark appeared offshore! Big turtles, watch out"), "shark")
+        self.assertIsNone(up.event_sound("shark", "The shark swam away"))
+        self.assertEqual(up.event_sound("wave", "A big wave is coming!"), "bigwave")
+        self.assertEqual(up.event_sound("visitor", "A dolphin came to visit!"), "dolphin")
+        self.assertEqual(up.event_sound("lay", "x"), "lay")
+        w = up.World()
+        t = up.Turtle(up.random_genome(), 100, 100, age=up.ADULT_AGE)
+        w.turtles = [t]
+        w.poke(t)
+        self.assertIn("flip", w.sfx)
+        n = w.n_events
+        w.event("mate", "x")
+        self.assertEqual(w.n_events, n + 1)
+
+    def test_settings_saved(self):
+        w = up.World()
+        w.seed()
+        w.settings["waves"] = False
+        with tempfile.TemporaryDirectory() as d:
+            up.save_world(w, d)
+            w2, _ = up.load_world(d)
+        self.assertFalse(w2.settings["waves"])
+        self.assertTrue(w2.settings["fx"])
+
+
 if __name__ == "__main__":
     unittest.main()
