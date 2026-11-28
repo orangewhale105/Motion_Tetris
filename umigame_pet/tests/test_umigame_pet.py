@@ -1,6 +1,7 @@
 import os
 import random
 import sys
+import math
 import tempfile
 import time
 import unittest
@@ -46,9 +47,9 @@ class TestDaylight(unittest.TestCase):
     def test_phases(self):
         self.assertEqual(up.daylight(at(6, 21, 12))[0], "Daytime")
         self.assertEqual(up.daylight(at(6, 21, 0))[0], "Night")
-        self.assertEqual(up.daylight(at(6, 21, 4, 30))[0], "Sunrise")      # 夏は日の出が早い
-        self.assertEqual(up.daylight(at(12, 21, 4, 30))[0], "Night")       # 冬はまだ夜
-        self.assertEqual(up.daylight(at(12, 21, 16, 30))[0], "Sunset")
+        self.assertEqual(up.daylight(at(6, 21, 4, 40))[0], "Sunrise")      # 夏の日のイメージ
+        self.assertEqual(up.daylight(at(12, 21, 4, 40))[0], "Sunrise")     # 季節によらない
+        self.assertEqual(up.daylight(at(12, 21, 18, 30))[0], "Sunset")
         self.assertEqual(up.daylight(at(6, 21, 19, 30))[0], "Dusk")
         self.assertGreater(up.daylight(at(6, 21, 0))[1], 0.95)
         self.assertLess(up.daylight(at(6, 21, 12))[1], 0.01)
@@ -71,7 +72,7 @@ class TestDaylight(unittest.TestCase):
             w.turtles = ts
             for _ in range(50):
                 w.step(0.2)
-            sleeping = sum(t.state == "sleep" for t in ts[1:])
+            sleeping = sum(t.state in ("sleep", "to_bed") for t in ts[1:])
             if expect_sleep:
                 self.assertGreaterEqual(sleeping, 8)
                 self.assertIn(ts[0].state, ("nest", "lay"))
@@ -81,11 +82,16 @@ class TestDaylight(unittest.TestCase):
 
 
 class TestWorld(unittest.TestCase):
-    def test_run_one_hour_with_mouse(self):
+    def test_run_with_mouse_through_a_night(self):
         random.seed(2)
         w = up.World()
+        base = at(6, 21, 17, 0)
+        w.clock = lambda: base + w.time          # 夕方5時から 12 時間(シミュレーションの時計)
+        w.update_daylight(w.clock(), log=False)
         w.seed()
-        for i in range(18000):   # 0.2秒 x 1時間
+        for t in w.turtles:
+            t.mate_cd = 0
+        for i in range(int(12 * 3600 / 0.5)):
             if i % 50 == 0:
                 w.cursor = (random.uniform(0, w.w), random.uniform(0, w.h))
                 w.cursor_speed = random.choice([0, 100, 1500])
@@ -100,7 +106,7 @@ class TestWorld(unittest.TestCase):
                 tt = w.hit(*w.cursor, pad=40)
                 if tt:
                     w.pet(tt, 70)
-            w.step(0.2)
+            w.step(0.5)
             self.assertLessEqual(w.population(), up.MAX_TURTLES + 3)
         self.assertGreater(w.births, 0)
         self.assertGreater(w.laid, 0)
@@ -159,16 +165,18 @@ class TestWorld(unittest.TestCase):
         """餌が足りないほど増えると、水草が減って餓死が起きる。"""
         random.seed(5)
         w = up.World()
+        w.clock = lambda: at(6, 21, 8, 0)
+        w.update_daylight(w.clock(), log=False)
         w.seed_plants()
         for i in range(38):
             x, y = w.water_point()
             t = up.Turtle(up.random_genome(), x, y, sex="FM"[i % 2], lineage="A")
             t.age = up.ADULT_AGE
-            t.energy = 0.5
+            t.energy, t.fatigue = 0.3, 0.0
             w.turtles.append(t)
         b0 = sum(p.b for p in w.plants)
-        for _ in range(9000):
-            w.step(0.2)
+        for _ in range(int(2 * 3600 / 0.5)):
+            w.step(0.5)
         self.assertLess(sum(p.b for p in w.plants), b0)
         self.assertGreater(w.deaths, 0)
 
@@ -221,6 +229,132 @@ class TestWorld(unittest.TestCase):
         w._split(m)
         self.assertEqual(len(w.turtles), 2)
         self.assertTrue(all(t.extra == 0 for t in w.turtles))
+
+
+class TestNewFeatures(unittest.TestCase):
+    def make(self, hour=12):
+        w = up.World()
+        w.clock = lambda: at(6, 21, hour, 0)
+        w.update_daylight(w.clock(), log=False)
+        w.seed_reefs()
+        w.seed_plants()
+        return w
+
+    def test_pastel_and_rare_dark(self):
+        random.seed(10)
+        gs = [up.random_genome() for _ in range(2000)]
+        dark = sum(up.is_dark(g) for g in gs)
+        self.assertLess(dark, 150)                       # 濃い色はまれ
+        self.assertGreater(dark, 10)
+        styles = {up.style_of(g) for g in gs}
+        self.assertEqual(styles, set(range(8)))          # 模様 8 種類
+        g = gs[0]
+        for frame in (0, 1):
+            for mode in ("normal", "belly", "dead", "breathe"):
+                px = up.turtle_pixels(g, frame, mode)
+                self.assertTrue(px)
+        self.assertEqual(len(up.turtle_pixels(g, 0, "breathe")), 13)
+
+    def test_big_wave_flips_and_surf(self):
+        random.seed(11)
+        w = self.make()
+        ts = []
+        for i in range(12):
+            g = up.random_genome()
+            g.update(activity=0.9, whim=0.9) if i % 2 else g.update(activity=0.1, whim=0.1, size=0.1)
+            t = up.Turtle(g, 50 + i * 50, w.land_top * 0.6, age=up.ADULT_AGE)
+            t.energy, t.joy, t.air, t.fatigue = 1.0, 0.8, 999, 0
+            ts.append(t)
+        w.turtles = ts
+        w.big_t = 0
+        seen = set()
+        for _ in range(1500):
+            if w.big_wave is None:
+                w.big_t = 0                       # 大波を続けて起こす
+            w.step(0.1)
+            for t in ts:
+                seen.add(t.state)
+                t.air, t.joy, t.energy = 999, 0.8, 1.0
+        self.assertIn("surf", seen)
+        self.assertIn("flipped", seen)
+
+    def test_cleaning_station(self):
+        random.seed(12)
+        w = self.make(12)
+        t = up.Turtle(up.random_genome(), 300, 150, age=up.ADULT_AGE)
+        t.energy, t.air, t.fatigue, t.clean_cd = 0.95, 999, 0, 0
+        t.g["appetite"] = 0.0
+        w.turtles = [t]
+        t.goal, t.state = w.schools[0], "to_clean"
+        cleaned = False
+        for _ in range(3000):
+            w.step(0.1)
+            t.air = 999
+            if t.state == "cleaning":
+                cleaned = True
+                break
+        self.assertTrue(cleaned)
+        for _ in range(20):
+            w.step(0.1)
+        s = w.schools[0]
+        near = sum(math.hypot(f.x - t.x, f.y - t.y) < 30 for f in w.fish if f.school is s)
+        self.assertGreaterEqual(near, 4)                  # 魚がカメに集まっている
+
+    def test_dolphin_play_and_friends(self):
+        random.seed(13)
+        w = self.make(12)
+        ts = []
+        for i in range(6):
+            g = up.random_genome()
+            g.update(flock=0.9, care=0.9)
+            t = up.Turtle(g, 200 + i * 15, 150, age=up.ADULT_AGE)
+            t.energy, t.air, t.fatigue, t.mate_cd = 1.0, 999, 0, 99999
+            ts.append(t)
+        w.turtles = ts
+        w._spawn_visitor("dolphin")
+        v = w.visitors[0]
+        v.x, v.y, v.y0 = 230, 150, 150
+        played = False
+        for _ in range(300):
+            w.step(0.1)
+            played = played or any(t.state == "play" for t in ts)
+        self.assertTrue(played)
+        for _ in range(4000):                             # 一緒にいると友達になる
+            for t in ts:
+                t.air, t.energy = 999, 1.0
+            w.step(0.1)
+        self.assertTrue(any(w.friends(t) for t in ts))
+        for kind in ("manta", "hermit", "coconut"):
+            w._spawn_visitor(kind)
+        for _ in range(50):
+            w.step(0.1)
+
+    def test_eggs_hatch_only_at_night(self):
+        random.seed(14)
+        w = self.make(12)
+        w.eggs = [up.Egg(up.random_genome(), 100, w.h - 20, 2, "A", "x", t=0.0)]
+        for _ in range(20):
+            w.step(0.1)
+        self.assertEqual(len(w.eggs), 1)
+        w.clock = lambda: at(6, 21, 23, 0)
+        for _ in range(5):
+            w.step(0.1)
+        self.assertEqual(len(w.eggs), 0)
+        self.assertEqual(w.births, 1)
+
+    def test_generations_per_day(self):
+        """1日(実時間)でおよそ 1〜3 世代。"""
+        random.seed(15)
+        w = up.World()
+        base = at(6, 21, 12, 0)
+        w.clock = lambda: base
+        w.update_daylight(base, log=False)
+        w.seed()
+        g0 = w.max_gen
+        w.advance_offline(3 * 24 * 3600, start=base - 3 * 24 * 3600)
+        per_day = (w.max_gen - g0) / 3.0
+        self.assertGreaterEqual(per_day, 0.7)
+        self.assertLessEqual(per_day, 4.0)
 
 
 if __name__ == "__main__":

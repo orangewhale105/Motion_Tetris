@@ -3,29 +3,30 @@
 Sea Turtle Colony(ウミガメ群体)— デスクトップで動く人工生命の小さなペット
 
 ・標準ライブラリだけで動く(tkinter)。pip install 不要。画面の表示は英語。
-・上から見た南国の海(ターコイズブルー)と砂浜。沖から白い波が寄せてくる。
-・ドット絵のウミガメ(インベーダー風)。スプライトは個体ごとに作って使い回す。
-・遺伝的アルゴリズム:
-    色(hue, hue2)・甲羅の模様(28bit)・速さ・寿命・大きさ・食性(草食/雑食)・
-    性格(活発さ・食欲・カーソルへの好き嫌い・群れたがり・無頓着さ・気まま・気の短さ)・産卵数。
-  交尾で両親の遺伝子を交叉(スクランブル)+突然変異。甲羅の色と模様で系統が見分けられる。
-  系統(Lineage)は母系で受け継ぐ。
-・生態系: 水草は増えて広がり、食べられると減る(根は残って再生。死骸は水草の栄養になる)。
-  クラゲは沖から流れてくる(雑食のカメの餌)。カメが増えすぎると餌が減って餓死が増える。
-  右上のグラフでカメ・水草・クラゲの増減が見える。
-・イベント: 交尾 → メスが砂浜に上がって産卵 → ふ化した子ガメは海へ。合体・分裂・死(老衰/餓死/サメ)。
-  まれに沖にサメが現れ、大きなカメ(x3以上)を狙う。カメは浅瀬へ逃げる。
-  カメはときどき海面に浮上して息継ぎをする(波紋が広がる)。
+・上から見た南国の海(ターコイズブルー)と砂浜。サンゴ礁と岩場、熱帯魚、寄せる波。
+・ドット絵のウミガメ(インベーダー風)。パステルカラー(水色・ピンク・ミント・レモン・ラベンダー・ピーチ)が基本で、
+  まれに濃い色の個体が生まれる。甲羅の模様は 8 種類(無地・水玉・しま・亀甲・リング・まだら・市松・ハート)。
+・遺伝的アルゴリズム: 色・模様・速さ・寿命・大きさ・食性(草食/雑食)・性格(活発さ・食欲・カーソルの好き嫌い・
+  群れたがり・無頓着さ・気まま・気の短さ)・産卵数。交尾で交叉(スクランブル)+突然変異。系統(Lineage)は母系。
+・時間の進み方: 1日(実時間)でおよそ 1〜3 世代が入れ替わる(大人まで約5時間、寿命 12〜24時間)。
+  朝・昼・夕・夜の見た目はパソコンの時計に合わせる(夏の日のイメージ: 日の出 4:36、日の入り 18:54)。
+・暮らし(ウミガメの生態に合わせた1日):
+    朝(5〜10時)と夕方(15〜19時)によく食べる。昼(11〜14時)はサンゴでくつろぎ、熱帯魚にクリーニングしてもらう。
+    夜は岩場やサンゴのそばで眠る。産卵は夜、メスが砂浜に上がって行う。子ガメも夜にふ化して海へ向かう。
+    ときどき海面に浮上して首を出して息継ぎ。大波でひっくり返ったり、波に乗ってサーフィンしたりする。
+・生態系: 水草は群生して広がり、食べられると減る(根は残って再生。死骸は水草の栄養になる)。
+  クラゲは沖から流れてくる。カメが増えすぎると餌が減って餓死が増える。右上のグラフで増減が見える。
+・関係: 近くで過ごすと友達になり、交尾した相手はパートナーになる。仲良しは一緒に泳ぎ、会うと喜ぶ。
+  仲間が死ぬと悲しむ。R キーで関係の線を表示。
+・訪問者: イルカ・マンタ(友好的。カメが集まって一緒に遊ぶ)、ヤドカリ、ヤシガニ(夜の砂浜)、サメ(大きなカメを狙う)。
 ・マウス:
-    カメをクリック       → ステータス(世代・健康・系統・性格など)がカメについて回る。もう一度で消える
+    カメをクリック       → ステータスがカメについて回る。もう一度で消える
     カメをダブルクリック → ひっくり返る(その後、喜ぶか怒る)
     カメの上でカーソルを動かす → なでる(性格しだいで喜ぶ/嫌がる)
     近づける             → 性格に応じて寄ってくる / 嫌がって逃げる / 気にしない
-    卵・水草・クラゲ・サメに重ねる → 説明を表示
+    卵・水草・サンゴ・岩・魚・クラゲ・訪問者に重ねる → 説明を表示
     水をクリック → クラゲを落とす   Shift+クリック → 水草を植える
-    右クリック → 最前面に固定の切り替え   L キー → 系統の文字を表示
-・昼と夜: パソコンの時計に合わせて 薄明・日の出・昼・夕焼け・薄暮・夜 の色になり、
-  カメは夜に眠り、暗くなってから産卵し、夕方は寄り集まる(日の出・日の入りは東京付近の近似)。
+    右クリック → 最前面に固定の切り替え   L キー → 系統の文字   R キー → 友達・パートナーの線
 ・閉じると群体を Google ドライブ(パソコン版 Google ドライブの同期フォルダ)に保存。
   次に起動すると、閉じていた実時間ぶん(最大7日)群体と生態系の時間を進める。
 
@@ -46,62 +47,85 @@ import string
 import sys
 import time
 
-VERSION = "3.1.0"
+VERSION = "4.0.0"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
 MAX_TURTLES = 40              # 安全のための上限(カメ+卵)。普段は餌の量で頭打ちになる
-ADULT_AGE = 20 * 60           # 大人になる年齢(秒)
-MATE_COOLDOWN = 20 * 60
-EGG_TIME = 3 * 60             # 卵がかえるまで(秒)
-LAY_TIME = 3.0
-EGG_COST = 0.22              # 卵1個に母親が使う栄養
-HATCH_ENERGY = 0.35          # 子ガメの最初の栄養                # 産卵にかかる時間(秒)
+HOUR = 3600.0
+JUVENILE_AGE = 1 * HOUR       # これより若いと一番小さい姿
+ADULT_AGE = 5 * HOUR          # 大人になる年齢。寿命 12〜24 時間 → 1日に 1〜3 世代
+MATE_COOLDOWN = 2 * HOUR
+EGG_TIME = 1.5 * HOUR         # 卵がかえるまで(その後、夜を待ってふ化)
+LAY_TIME = 4.0
+EGG_COST = 0.09               # 卵1個に母親が使う栄養
+HATCH_ENERGY = 0.45           # 子ガメの最初の栄養
 MAX_SCALE = 5                 # ドットの拡大率の上限(合体で大きくなる)
 MERGE_KIN = 0.12              # この遺伝距離より近い個体どうしが合体候補
 CORPSE_TIME = 10.0            # 死骸が残る時間(その後、分解されて近くの水草の栄養になる)
 CORPSE_FERTILIZE = 0.25
 
-PLANT_START = 10
-PLANT_MAX = 18
-PLANT_GROWTH = 0.003          # 水草のロジスティック成長率(1/秒)
+PLANT_START = 15
+PLANT_MAX = 36
+PLANT_GROWTH = 0.0006         # 水草のロジスティック成長率(1/秒)
 PLANT_MIN = 0.08              # 食べ尽くされても根が残る量
 PLANT_EDIBLE = 0.18           # これより少ない水草は食べられない(根からの再生を待つ)
-PLANT_BASE = 0.0002           # 根からの再生(1/秒)
+PLANT_BASE = 0.00004           # 根からの再生(1/秒)
 PLANT_BITE = 0.22
-PLANT_SPREAD = 1 / 90.0       # 茂った水草が隣に広がる確率(1/秒)
-JELLY_INTERVAL = 60.0         # クラゲが流れてくる間隔(秒)
-JELLY_MAX = 5                 # 自然に流れてくるクラゲの上限
-JELLY_DROP_MAX = 12           # クリックで落とす分も含めた上限
+PLANT_SPREAD = 1 / 120.0       # 茂った水草がすぐ隣に広がる確率(1/秒)→ 群生する
+JELLY_INTERVAL = 180.0
+JELLY_MAX = 5
+JELLY_DROP_MAX = 12
 JELLY_ENERGY = 0.40
 
-SHARK_GAP = (20 * 60, 45 * 60)  # サメが現れる間隔(秒、この範囲でランダム)
-SHARK_STAY = 70.0             # サメが沖にいる時間(秒)
-SHARK_PREY_SCALE = 3          # この大きさ以上のカメが狙われる
-SHARK_SIGHT = 140.0           # サメが獲物に気づく距離
-TURTLE_ALERT = 170.0          # カメがサメに気づいて逃げる距離
-SHARK_ZONE = 0.6              # サメが入ってくるのは海の上(沖)から 60% まで
+SHARK_GAP = (2 * 3600, 4 * 3600)    # まれ(夕方〜夜は少し出やすい)
+SHARK_STAY = 70.0
+SHARK_PREY_SCALE = 3
+SHARK_SIGHT = 140.0
+TURTLE_ALERT = 170.0
+SHARK_ZONE = 0.6
 
-BREATH_GAP = (180, 480)       # 息継ぎの間隔(秒)。活発な個体ほど短い
-BREATH_TIME = 2.5
-PET_STROKE = 60.0             # なでた距離(px)がこれだけたまると1回なでたことになる
+VISITORS = {   # 間隔(秒)・滞在(秒)・場所・出る時間帯
+    "dolphin": {"gap": (3 * 3600, 6 * 3600), "stay": 120, "zone": "sea", "when": "day", "friendly": True},
+    "manta": {"gap": (4 * 3600, 8 * 3600), "stay": 160, "zone": "sea", "when": "daydusk", "friendly": True},
+    "hermit": {"gap": (2 * 3600, 4 * 3600), "stay": 240, "zone": "beach", "when": "any", "friendly": False},
+    "coconut": {"gap": (3 * 3600, 6 * 3600), "stay": 300, "zone": "beach", "when": "night", "friendly": False},
+}
+BIG_WAVE_GAP = (15 * 60, 40 * 60)
+N_WAVES = 8
+N_SCHOOLS = 3
+FISH_PER_SCHOOL = 6
+FRIEND_AFF = 1.0              # この親しさ以上で友達
+
+BREATH_GAP = (180, 480)
+SLEEP_METAB = 0.12            # 眠っている間の代謝(起きている時の割合)。満腹なら一晩眠れる
+BREATH_TIME = 3.0
+PET_STROKE = 60.0
+
+SUNRISE = 4.6                 # 夏の日のイメージ(4:36)
+SUNSET = 18.9                 # (18:54)
 
 OFFLINE_STEP = 60.0
 OFFLINE_MAX = 7 * 24 * 3600
-HISTORY_DT = 20.0             # グラフの記録間隔(秒)
+HISTORY_DT = 20.0
 HISTORY_LEN = 60
 AUTOSAVE_SEC = 300
 SAVE_NAME = "colony.json"
 
 FLOAT_GENES = ("hue", "hue2", "speed", "life", "size", "diet",
                "activity", "appetite", "cursor", "flock", "care", "whim",
-               "temper", "fertility")
-PATTERN_BITS = 28             # 甲羅の模様(左半分 4列 x 7行、左右対称)
+               "temper", "fertility", "style", "dark")
+PATTERN_BITS = 28
+
+PASTEL = (0.55, 0.93, 0.38, 0.14, 0.76, 0.06)     # 水色・ピンク・ミント・レモン・ラベンダー・ピーチ
+PASTEL_NAMES = ("sky blue", "pink", "mint", "lemon", "lavender", "peach")
+STYLES = ("plain", "polka dots", "stripes", "tortoiseshell", "ring", "mottled", "checker", "heart")
 
 
 # ---------------------------------------------------------------- 遺伝子
 def random_genome(rng=random):
     g = {k: rng.random() for k in FLOAT_GENES}
+    g["dark"] = rng.random() ** 3          # 濃い色(>0.9)はまれ
     g["pattern"] = [rng.random() < 0.4 for _ in range(PATTERN_BITS)]
     return g
 
@@ -111,7 +135,7 @@ def fill_genome(g):
     g = dict(g)
     for k in FLOAT_GENES:
         if k not in g:
-            g[k] = random.random()
+            g[k] = random.random() ** 3 if k == "dark" else random.random()
     if len(g.get("pattern", [])) != PATTERN_BITS:
         g["pattern"] = [random.random() < 0.4 for _ in range(PATTERN_BITS)]
     return g
@@ -193,6 +217,31 @@ def traits(g):
     return out
 
 
+def pastel_index(h):
+    return min(len(PASTEL) - 1, int((h % 1.0) * len(PASTEL)))
+
+
+def pastel_hue(h):
+    """遺伝子の色相を、かわいいパステルの色の近くに寄せる。"""
+    i = pastel_index(h)
+    frac = (h % 1.0) * len(PASTEL) - i
+    return (PASTEL[i] + (frac - 0.5) * 0.06) % 1.0
+
+
+def is_dark(g):
+    return g["dark"] > 0.9
+
+
+def style_of(g):
+    s = g["style"]
+    return 7 if s > 0.96 else min(6, int(s / 0.96 * 7))
+
+
+def color_name(g):
+    n = PASTEL_NAMES[pastel_index(g["hue"])]
+    return ("deep " + n.replace("sky ", "")) if is_dark(g) else ("pastel " + n)
+
+
 def lineage_name(i):
     s = ""
     i += 1
@@ -203,25 +252,22 @@ def lineage_name(i):
 
 
 # ---------------------------------------------------------------- 昼と夜(パソコンの時計に合わせる)
-# 空の明るさと色み(R, G, B の倍率)
-TINTS = {"night": (0.22, 0.28, 0.45), "twilight": (0.50, 0.58, 0.85), "sunrise": (1.00, 0.82, 0.72),
-         "day": (1.00, 1.00, 1.00), "sunset": (1.08, 0.72, 0.50), "dusk": (0.55, 0.46, 0.72)}
+TINTS = {"night": (0.22, 0.28, 0.45), "twilight": (0.50, 0.58, 0.85), "sunrise": (1.00, 0.84, 0.74),
+         "day": (1.00, 1.00, 1.00), "noon": (1.04, 1.04, 1.0), "sunset": (1.08, 0.74, 0.52),
+         "dusk": (0.58, 0.48, 0.74)}
 PHASE_MSG = {
     "Dawn twilight": "Dawn twilight - the sky is getting lighter",
-    "Sunrise": "Sunrise! The turtles wake up",
-    "Daytime": "Daytime - a good time to eat",
-    "Sunset": "Sunset - the sea turns orange",
-    "Dusk": "Dusk - mothers head for the beach to lay eggs",
-    "Night": "Night - most turtles fall asleep",
+    "Sunrise": "Sunrise! The turtles wake up and look for breakfast",
+    "Daytime": "Daytime - turtles eat, rest at the reef and get cleaned",
+    "Sunset": "Sunset - the sea turns orange, time for an evening snack",
+    "Dusk": "Dusk - turtles gather and head for their beds",
+    "Night": "Night - turtles sleep by the rocks; mothers lay eggs on the beach",
 }
 
 
-def sun_times(ts):
-    """日の出・日の入りの時刻(時)。日本(東京付近)の季節変化を簡単な式で近似。
-    夏至ごろ 4:24 / 19:00、冬至ごろ 6:48 / 16:30。"""
-    doy = time.localtime(ts).tm_yday
-    c = math.cos(2 * math.pi * (doy - 172) / 365.0)
-    return 5.6 - 1.2 * c, 17.75 + 1.25 * c
+def sun_times(ts=None):
+    """日の出・日の入り(時)。夏の日をイメージした固定の時刻。"""
+    return SUNRISE, SUNSET
 
 
 def daylight(ts):
@@ -229,8 +275,8 @@ def daylight(ts):
     lt = time.localtime(ts)
     h = lt.tm_hour + lt.tm_min / 60.0 + lt.tm_sec / 3600.0
     sr, ss = sun_times(ts)
-    keys = [(sr - 1.0, "night"), (sr - 0.5, "twilight"), (sr, "sunrise"), (sr + 1.0, "day"),
-            (ss - 1.0, "day"), (ss - 0.2, "sunset"), (ss + 0.5, "dusk"), (ss + 1.2, "night")]
+    keys = [(sr - 1.0, "night"), (sr - 0.5, "twilight"), (sr, "sunrise"), (sr + 1.2, "day"),
+            (12.5, "noon"), (ss - 1.2, "day"), (ss - 0.2, "sunset"), (ss + 0.5, "dusk"), (ss + 1.2, "night")]
     tint = TINTS["night"]
     for (h0, a), (h1, b) in zip(keys, keys[1:]):
         if h0 <= h < h1:
@@ -279,7 +325,7 @@ class Turtle:
         self.age = age
         self.energy = 0.7
         self.fatigue = random.random() * 0.6
-        self.mate_cd = MATE_COOLDOWN * 0.3
+        self.mate_cd = MATE_COOLDOWN * 0.1
         self.state = "swim"
         self.state_t = 0.0
         self.joy = 0.3
@@ -292,24 +338,40 @@ class Turtle:
         self.eat_cd = 0.0
         self.clutch = None
         self.nest = None
+        self.bed = None           # 眠る場所(岩場・サンゴのそば)
+        self.bed_kind = None
+        self.goal = None          # クリーニングに行くサンゴ
+        self.surf = None          # 乗っている波
+        self.vis = None           # 一緒に遊んでいる訪問者
+        self.orbit = random.uniform(0, math.tau)
         self.dead_t = 0.0
         self.cause = ""
         self.anim = random.random()
-        self.dir = 0           # 0上 1右 2下 3左
-        self.nb = None         # 近くの仲間の情報(群れの計算用)
+        self.dir = 0              # 0上 1右 2下 3左
+        self.nb = None
         self.air = random.uniform(0.3, 1.0) * self.breath_gap
         self.pet_acc = 0.0
         self.pets = 0
+        self.aff = {}             # 親しさ: 相手の id → 値
+        self.partner = None
+        self.lonely_t = 0.0
+        self.clean_cd = random.uniform(0, 3600)
 
     @property
     def adult(self):
         return self.age >= ADULT_AGE
 
     @property
+    def base_scale(self):
+        return 2 if self.g["size"] < 0.5 else 3
+
+    @property
     def scale(self):
-        if not self.adult:
+        if self.age < JUVENILE_AGE:
             return 1
-        return min(MAX_SCALE, (2 if self.g["size"] < 0.5 else 3) + self.extra)
+        if not self.adult:
+            return max(1, self.base_scale - 1)
+        return min(MAX_SCALE, self.base_scale + self.extra)
 
     @property
     def herbivore(self):
@@ -323,13 +385,13 @@ class Turtle:
 
     @property
     def lifespan(self):
-        return (4 + 8 * self.g["life"]) * 3600 * (1 + 0.2 * self.extra)
+        return (12 + 12 * self.g["life"]) * HOUR * (1 + 0.2 * self.extra)
 
     @property
     def metab(self):
         g = self.g
-        return (0.0005 + 0.0006 * g["appetite"] + 0.0003 * g["speed"]
-                + 0.0002 * g["activity"]) * (1 + 0.15 * self.extra) * (1.0 if self.adult else 0.6)
+        return (0.00012 + 0.00015 * g["appetite"] + 0.00008 * g["speed"]
+                + 0.00005 * g["activity"]) * (1 + 0.15 * self.extra) * (1.0 if self.adult else 0.6)
 
     @property
     def eat_below(self):
@@ -341,11 +403,11 @@ class Turtle:
 
     @property
     def awake_len(self):
-        return 300 + 1500 * self.g["activity"]
+        return 900 + 2700 * self.g["activity"]
 
     @property
     def sleep_len(self):
-        return 60 + 300 * (1 - self.g["activity"])
+        return 120 + 480 * (1 - self.g["activity"])
 
     @property
     def breath_gap(self):
@@ -360,15 +422,30 @@ class Turtle:
     def alive(self):
         return self.state != "dead"
 
-    def say(self, emote, sec=1.6):
-        self.emote, self.emote_t = emote, sec
+    def head(self):
+        """頭の位置(息継ぎの波紋用)。"""
+        dx, dy = ((0, -1), (1, 0), (0, 1), (-1, 0))[self.dir]
+        return self.x + dx * self.radius * 0.95, self.y + dy * self.radius * 0.95
+
+    def say(self, emote, sec=1.6, force=True):
+        if force or self.emote is None:
+            self.emote, self.emote_t = emote, sec
+
+    def best_friend(self, by_id):
+        best, bv = None, FRIEND_AFF
+        for i, v in self.aff.items():
+            if v >= bv and i in by_id and i != self.partner:
+                best, bv = by_id[i], v
+        return best
 
     def to_dict(self):
         return {"id": self.id, "g": self.g, "x": self.x, "y": self.y, "gen": self.generation,
                 "age": self.age, "energy": self.energy, "fatigue": self.fatigue,
                 "mate_cd": self.mate_cd, "sex": self.sex, "lin": self.lineage,
                 "par": self.parents, "extra": self.extra, "clutch": self.clutch,
-                "sleep": self.state == "sleep", "joy": self.joy, "annoy": self.annoy}
+                "sleep": self.state == "sleep", "joy": self.joy, "annoy": self.annoy,
+                "partner": self.partner, "aff": {str(k): round(v, 3) for k, v in self.aff.items()},
+                "pets": self.pets}
 
     @classmethod
     def from_dict(cls, d):
@@ -379,6 +456,9 @@ class Turtle:
         t.mate_cd = d.get("mate_cd", 0.0)
         t.joy, t.annoy = d.get("joy", 0.3), d.get("annoy", 0.0)
         t.clutch = d.get("clutch")
+        t.partner = d.get("partner")
+        t.aff = {int(k): v for k, v in d.get("aff", {}).items()}
+        t.pets = d.get("pets", 0)
         if d.get("sleep"):
             t.state = "sleep"
         return t
@@ -413,6 +493,34 @@ class Plant:
         return 0 if b < 0.15 else 1 if b < 0.4 else 2 if b < 0.7 else 3
 
 
+class Reef:
+    """サンゴ礁(coral)と岩場(rock)。カメの寝床、熱帯魚のすみか、クリーニングの場所。"""
+
+    def __init__(self, x, y, kind, seed):
+        self.x, self.y, self.kind, self.seed = x, y, kind, seed
+        rnd = random.Random(seed)
+        n = rnd.randint(7, 10) if kind == "coral" else rnd.randint(4, 6)
+        r = 34 if kind == "coral" else 26
+        self.parts = []           # (dx, dy, 部品の種類, 色の番号)
+        for i in range(n):
+            a = rnd.uniform(0, math.tau)
+            d = rnd.uniform(0, r) if i else 0
+            if kind == "coral":
+                piece = rnd.choice(("branch", "branch", "brain", "fan", "table"))
+            else:
+                piece = rnd.choice(("rock1", "rock2")) if i < n - 1 or rnd.random() < 0.5 else "brain"
+            self.parts.append((math.cos(a) * d, math.sin(a) * d * 0.75, piece, rnd.randrange(4)))
+        self.radius = r + 8
+
+    def bed_point(self):
+        a = random.uniform(0, math.tau)
+        d = random.uniform(self.radius * 0.6, self.radius * 1.05)
+        return self.x + math.cos(a) * d, self.y + math.sin(a) * d * 0.8
+
+    def to_list(self):
+        return [self.x, self.y, self.kind, self.seed]
+
+
 class Shark:
     kind = "shark"
 
@@ -425,6 +533,24 @@ class Shark:
         self.dir = 1 if vx > 0 else 3
 
 
+class Visitor:
+    """まれに来る生き物(イルカ・マンタ・ヤドカリ・ヤシガニ)。"""
+
+    def __init__(self, kind, x, y, vx):
+        self.kind, self.x, self.y, self.vx, self.vy = kind, x, y, vx, 0.0
+        self.y0 = y
+        self.t = 0.0
+        self.anim = 0.0
+        self.leaving = False
+        self.gone = False
+        self.players = set()
+        self.announced = False
+
+    @property
+    def dir(self):
+        return 1 if self.vx >= 0 else 3
+
+
 class Jelly:
     kind = "jelly"
 
@@ -434,20 +560,73 @@ class Jelly:
         self.gone = False
 
 
+class Wave:
+    """沖から砂浜へ寄せる波。大波(big)はカメをひっくり返したり、サーフィンさせたりする。"""
+
+    def __init__(self, world, first=False, big=False):
+        self.big = big
+        self.hit = set()
+        self.riders = set()
+        self.flipped = 0
+        self.done = False
+        self.reset(world, first)
+
+    def reset(self, world, first=False):
+        w = world
+        self.hit.clear()
+        self.riders.clear()
+        self.flipped = 0
+        if self.big:
+            self.x, self.len, self.amp, self.sp = -w.w * 0.1, w.w * 1.2, 7.0, 22.0
+            self.y0 = 6.0
+        else:
+            self.x = random.uniform(-20, w.w - 40)
+            self.len, self.amp = random.uniform(50, 120), random.uniform(2, 5)
+            self.sp = random.uniform(6, 12)
+            self.y0 = random.uniform(8, w.land_top * 0.35)
+        self.y = random.uniform(self.y0, w.land_top * 0.9) if first else self.y0
+        self.ph = random.uniform(0, math.tau)
+
+
+class School:
+    def __init__(self, home, kind):
+        self.home, self.kind = home, kind
+        self.ang = random.uniform(0, math.tau)
+        self.cleaning = None
+
+
+class Fish:
+    def __init__(self, school, x, y):
+        self.school = school
+        self.x, self.y = x, y
+        self.vx, self.vy = random.uniform(-10, 10), random.uniform(-5, 5)
+        self.ox, self.oy = random.uniform(-1, 1), random.uniform(-1, 1)
+        self.t = random.uniform(0, 3)
+
+
 # ---------------------------------------------------------------- 世界(描画と無関係)
 class World:
-    def __init__(self, w=640, h=420):
+    def __init__(self, w=700, h=440):
         self.w, self.h = w, h
         self.turtles = []
         self.eggs = []
         self.plants = []
+        self.reefs = []
+        self.schools = []
+        self.fish = []
+        self.jellies = []
+        self.visitors = []
+        self.vis_t = {k: random.uniform(*v["gap"]) * random.uniform(0.1, 0.6) for k, v in VISITORS.items()}
         self.shark = None
         self.shark_t = random.uniform(*SHARK_GAP)
+        self.waves = [Wave(self, first=True) for _ in range(N_WAVES)]
+        self.big_wave = None
+        self.big_t = random.uniform(*BIG_WAVE_GAP)
         self.clock = time.time    # テストでは差し替える
         self.phase, self.night, self.tint, self.hour = daylight(self.clock())
+        self.now_ts = self.clock()
         self.phase_msg = None
         self.fx = []              # 描画側への演出 (種類, x, y)
-        self.jellies = []
         self.time = 0.0
         self.jelly_t = 0.0
         self.births = self.deaths = self.laid = self.merges = self.splits = 0
@@ -456,10 +635,14 @@ class World:
         self.gene_pool = []
         self.cursor = None
         self.cursor_speed = 0.0
-        self.events = []          # (時刻の文字列, 種類, 文)
-        self.history = []         # (カメ, 水草の総量, ゴカイ)
+        self.events = []
+        self.history = []
         self.hist_t = 0.0
+        self.aff_t = 0.0
+        self.surf_log_t = 0.0
+        self.clean_log_t = 0.0
         self._pop = 0
+        self.by_id = {}
 
     # ---- 地形
     @property
@@ -489,18 +672,44 @@ class World:
         return name
 
     def seed(self, n=8):
+        self.seed_reefs()
         for i in range(n):
             x, y = self.water_point(40)
             t = Turtle(random_genome(), x, y, sex="FM"[i % 2], lineage=self.new_lineage())
-            t.age = ADULT_AGE + random.uniform(0.0, 0.2) * t.lifespan
-            t.mate_cd = random.uniform(0, MATE_COOLDOWN)
+            t.age = ADULT_AGE + random.uniform(0.0, 0.1) * t.lifespan
+            t.mate_cd = random.uniform(0, MATE_COOLDOWN * 0.5)
             self.turtles.append(t)
         self.seed_plants()
 
+    def seed_reefs(self):
+        lt = self.land_top
+        spots = [(0.16, 0.55, "coral"), (0.42, 0.78, "rock"), (0.58, 0.42, "coral"),
+                 (0.85, 0.72, "coral"), (0.30, 0.30, "rock")]
+        self.reefs = [Reef(self.w * fx + random.uniform(-15, 15), lt * fy + random.uniform(-10, 10),
+                           kind, random.randrange(10 ** 6)) for fx, fy, kind in spots]
+        self.seed_fish()
+
+    def seed_fish(self):
+        corals = [r for r in self.reefs if r.kind == "coral"] or self.reefs
+        self.schools, self.fish = [], []
+        for i in range(N_SCHOOLS):
+            s = School(corals[i % len(corals)], ("yellow", "blue", "clown")[i % 3])
+            self.schools.append(s)
+            for _ in range(FISH_PER_SCHOOL):
+                self.fish.append(Fish(s, s.home.x + random.uniform(-20, 20), s.home.y + random.uniform(-15, 15)))
+
     def seed_plants(self, n=PLANT_START):
-        for _ in range(n):
-            x, y = self.water_point(25)
-            self.plants.append(Plant(x, y, random.uniform(0.3, 0.9)))
+        """水草は数か所にかたまって(群生して)生える。"""
+        centers = [self.water_point(40) for _ in range(4)]
+        for i in range(n):
+            cx, cy = centers[i % len(centers)]
+            x = min(max(15, cx + random.uniform(-28, 28)), self.w - 15)
+            y = max(15, cy + random.uniform(-20, 20))
+            if self.in_water(x, y + 15) and not self._near_reef(x, y):
+                self.plants.append(Plant(x, y, random.uniform(0.3, 0.9)))
+
+    def _near_reef(self, x, y):
+        return any(math.hypot(r.x - x, r.y - y) < r.radius for r in self.reefs)
 
     def alive(self):
         return [t for t in self.turtles if t.alive]
@@ -517,7 +726,7 @@ class World:
     def tag(t):
         return "#%d (%s)" % (t.id, t.lineage)
 
-    # ---- 1フレーム
+    # ---- 時間帯
     def update_daylight(self, ts, log=True):
         self.now_ts = ts
         phase, self.night, self.tint, self.hour = daylight(ts)
@@ -527,23 +736,40 @@ class World:
                 self.phase_msg = PHASE_MSG[phase]
                 self.event("time", PHASE_MSG[phase])
 
+    def appetite_shift(self):
+        """ウミガメの1日: 朝と夕方によく食べ、昼はくつろぎ、夜はほとんど食べない。"""
+        h = self.hour
+        if 5 <= h < 10 or 15 <= h < 19:
+            return 0.15
+        if 11 <= h < 14:
+            return -0.05
+        if self.night > 0.6:
+            return -0.25
+        return 0.0
+
+    # ---- 1フレーム
     def step(self, dt):
         dt = min(dt, 0.5)
         self.time += dt
         self.update_daylight(self.clock())
         self._grow_plants(dt)
         self._jellies(dt)
+        self._waves(dt)
+        self._fish_step(dt)
+        self._visitors_step(dt)
         self._shark_step(dt)
         self._hatch(dt)
         alive = self.alive()
         self._pop = len(alive) + len(self.eggs)
-        self._neighbors(alive)
+        self.by_id = {t.id: t for t in alive}
+        self._neighbors(alive, dt)
         for t in list(self.turtles):
             self._update_turtle(t, dt)
         self._pairs(alive, dt)
         self._decompose()
         if not self.alive() and not self.eggs:
             self._refound()
+        self._decay_aff(dt)
         self._record(dt)
 
     # ---- 生態系
@@ -552,15 +778,17 @@ class World:
         for p in self.plants:
             p.b += (PLANT_GROWTH * p.b + PLANT_BASE) * (1 - p.b) * dt
             p.b = min(1.0, max(PLANT_MIN, p.b))
-            if (p.b > 0.85 and len(self.plants) + len(new) < PLANT_MAX
+            if (p.b > 0.8 and len(self.plants) + len(new) < PLANT_MAX
                     and random.random() < min(1.0, dt * PLANT_SPREAD)):
                 a = random.uniform(0, math.tau)
-                r = random.uniform(25, 50)
+                r = random.uniform(9, 22)                 # すぐ隣に広がる → 群生
                 x = min(max(15, p.x + math.cos(a) * r), self.w - 15)
                 y = max(15, p.y + math.sin(a) * r)
-                if self.in_water(x, y + 15):
+                near = [q for q in self.plants + new if (q.x - x) ** 2 + (q.y - y) ** 2 < 30 * 30]
+                if (self.in_water(x, y + 15) and not self._near_reef(x, y) and len(near) < 7
+                        and all((q.x - x) ** 2 + (q.y - y) ** 2 > 64 for q in near)):
                     new.append(Plant(x, y, 0.1))
-                    p.b -= 0.2
+                    p.b -= 0.15
         self.plants += new
 
     def _jellies(self, dt):
@@ -582,14 +810,197 @@ class World:
 
     def drop_jelly(self, x, y):
         if len(self.jellies) < JELLY_DROP_MAX and self.in_water(x, y):
-            j = Jelly(x, y, random.choice((-3, 3)))
-            self.jellies.append(j)
+            self.jellies.append(Jelly(x, y, random.choice((-3, 3))))
             self.fx.append(("splash", x, y))
+
+    def drop_plant(self, x, y):
+        if len(self.plants) < PLANT_MAX + 6 and self.in_water(x, y + 10):
+            self.plants.append(Plant(x, y, 0.15))
+
+    # ---- 波(大波・サーフィン)
+    def _waves(self, dt):
+        self.big_t -= dt
+        if self.big_wave is None and self.big_t <= 0:
+            self.big_t = random.uniform(*BIG_WAVE_GAP)
+            self.big_wave = Wave(self, big=True)
+            self.event("wave", "A big wave is coming!")
+        waves = self.waves + ([self.big_wave] if self.big_wave else [])
+        alive = [t for t in self.turtles if t.alive]
+        for wv in waves:
+            wv.y += wv.sp * dt
+            wv.x += math.sin(self.time * 0.3 + wv.ph) * 2 * dt
+            end = self.shore(wv.x + wv.len / 2) - 6 if not wv.big else self.land_top - 4
+            if wv.y > end:
+                self._wave_end(wv)
+                continue
+            for t in alive:
+                if t.id in wv.hit or not (wv.x <= t.x <= wv.x + wv.len) or abs(t.y - wv.y) > 6:
+                    continue
+                if not self.in_water(t.x, t.y):
+                    continue
+                wv.hit.add(t.id)
+                self._wave_hits(wv, t)
+
+    def _wave_hits(self, wv, t):
+        if t.state in ("lay", "nest", "flee_shark", "surf", "dead"):
+            return
+        g = t.g
+        if wv.big and t.y > self.land_top * 0.3:
+            # 大波: 小さいカメほどひっくり返りやすい(寝ているカメも)
+            if random.random() < (0.45 if t.scale <= 2 else 0.2):
+                t.state, t.state_t = "flipped", 3.0
+                t.say("surprise", 1.5)
+                t.annoy = min(1.0, t.annoy + 0.1 * g["temper"])
+                wv.flipped += 1
+                return
+        surfer = (g["activity"] > 0.6 or g["whim"] > 0.6) and t.energy > 0.4 and t.joy > 0.2
+        if t.state == "swim" and surfer and random.random() < (0.6 if wv.big else 0.07):
+            t.state, t.surf = "surf", wv
+            wv.riders.add(t.id)
+            t.say("star", 1.5)
+            if wv.big or self.time - self.surf_log_t > 180:
+                self.surf_log_t = self.time
+                self.event("surf", "%s is surfing%s!" % (self.tag(t), " the big wave" if wv.big else ""))
+
+    def _wave_end(self, wv):
+        for tid in list(wv.riders):
+            t = self.by_id.get(tid)
+            if t and t.state == "surf":
+                t.state, t.state_t, t.surf = "dance", 1.2, None
+                t.joy = min(1.0, t.joy + 0.3)
+                t.say("star", 1.5)
+        if wv.big:
+            if wv.flipped:
+                self.event("wave", "The big wave flipped %d turtle%s over!"
+                           % (wv.flipped, "s" if wv.flipped > 1 else ""))
+            self.big_wave = None
+        else:
+            wv.reset(self)
+
+    # ---- 熱帯魚(群れでサンゴのまわりを泳ぎ、カメをクリーニングする)
+    def _fish_step(self, dt):
+        night = self.night
+        for s in self.schools:
+            t = s.cleaning
+            if t is not None and (not t.alive or t.state != "cleaning"):
+                s.cleaning = t = None
+            if t is not None:
+                s.cx, s.cy, s.spread = t.x, t.y, t.radius + 3
+            else:
+                s.ang += dt * (0.45 - 0.35 * night)
+                s.cx = s.home.x + math.cos(s.ang) * (32 - 20 * night)
+                s.cy = s.home.y + math.sin(s.ang) * (20 - 12 * night)
+                s.spread = 16 - 8 * night
+        cur = self.cursor
+        for f in self.fish:
+            s = f.school
+            f.t -= dt
+            if f.t <= 0:
+                f.t = random.uniform(1.5, 4)
+                f.ox, f.oy = random.uniform(-1, 1), random.uniform(-1, 1)
+            tx, ty = s.cx + f.ox * s.spread, s.cy + f.oy * s.spread * 0.7
+            ax, ay = (tx - f.x) * 1.8, (ty - f.y) * 1.8
+            if cur and abs(cur[0] - f.x) < 50 and abs(cur[1] - f.y) < 50:
+                d = math.hypot(f.x - cur[0], f.y - cur[1]) or 1.0
+                if d < 50:                                 # カーソルが来ると散る
+                    ax += (f.x - cur[0]) / d * 250
+                    ay += (f.y - cur[1]) / d * 250
+            f.vx += (ax - f.vx) * min(1.0, dt * 2)
+            f.vy += (ay - f.vy) * min(1.0, dt * 2)
+            sp = math.hypot(f.vx, f.vy)
+            if sp > 70:
+                f.vx, f.vy = f.vx / sp * 70, f.vy / sp * 70
+            f.x += f.vx * dt
+            f.y += f.vy * dt
+
+    # ---- 訪問者
+    def _visitors_step(self, dt):
+        for kind, cfg in VISITORS.items():
+            self.vis_t[kind] -= dt
+            if self.vis_t[kind] > 0 or any(v.kind == kind for v in self.visitors):
+                continue
+            ok = {"day": self.night < 0.2, "daydusk": self.night < 0.6,
+                  "night": self.night > 0.6, "any": True}[cfg["when"]]
+            if not ok:
+                self.vis_t[kind] = 120.0
+                continue
+            self.vis_t[kind] = random.uniform(*cfg["gap"])
+            self._spawn_visitor(kind)
+        keep = []
+        for v in self.visitors:
+            self._move_visitor(v, dt)
+            if not v.gone:
+                keep.append(v)
+        self.visitors = keep
+
+    def _spawn_visitor(self, kind):
+        left = random.random() < 0.5
+        if VISITORS[kind]["zone"] == "sea":
+            y = random.uniform(30, self.land_top * 0.7)
+            sp = 55 if kind == "dolphin" else 16
+            v = Visitor(kind, -40 if left else self.w + 40, y, sp if left else -sp)
+            msg = {"dolphin": "A dolphin came to visit!", "manta": "A manta ray is gliding by"}[kind]
+        else:
+            x, y = self.beach_point()
+            v = Visitor(kind, -15 if left else self.w + 15, min(y, self.h - 12), 5 if left else -5)
+            msg = {"hermit": "A hermit crab is walking on the beach",
+                   "coconut": "A coconut crab came out on the night beach"}[kind]
+        self.visitors.append(v)
+        self.event("visitor", msg)
+
+    def _move_visitor(self, v, dt):
+        v.t += dt
+        v.anim += dt
+        cfg = VISITORS[v.kind]
+        if v.t > cfg["stay"] or (v.kind == "coconut" and self.night < 0.3):
+            v.leaving = True
+        if cfg["zone"] == "sea":
+            if v.kind == "dolphin":
+                v.y = v.y0 + 30 * math.sin(v.t * 1.3)
+                if not v.leaving and (v.x < 40 and v.vx < 0 or v.x > self.w - 40 and v.vx > 0):
+                    v.vx = -v.vx                          # 行ったり来たり
+            else:
+                v.y = v.y0 + 18 * math.sin(v.t * 0.35)
+                if not v.leaving and (v.x < 60 and v.vx < 0 or v.x > self.w - 60 and v.vx > 0):
+                    v.vx = -v.vx
+            v.x += v.vx * dt
+            if cfg["friendly"] and not v.leaving:
+                self._recruit_players(v)
+        else:
+            if random.random() < dt / 6 and not v.leaving:
+                v.vx = -v.vx
+            if v.leaving:
+                v.vx = (abs(v.vx) if v.x > self.w / 2 else -abs(v.vx))
+            v.x += v.vx * dt
+            if not v.leaving:
+                v.x = min(max(10, v.x), self.w - 10)
+            for t in self.turtles:   # 子ガメはびっくり(ヤシガニ)/興味しんしん(ヤドカリ)
+                if t.alive and not t.adult and math.hypot(t.x - v.x, t.y - v.y) < 45:
+                    t.say("bang" if v.kind == "coconut" else "question", 1.0, force=False)
+        if v.leaving and (v.x < -60 or v.x > self.w + 60):
+            v.gone = True
+        if v.t > 6 and v.players and not v.announced:
+            v.announced = True
+            self.event("play", "%d turtle%s joined the %s to play!" % (
+                len(v.players), "s" if len(v.players) > 1 else "", "dolphin" if v.kind == "dolphin" else "manta"))
+
+    def _recruit_players(self, v):
+        for t in self.turtles:
+            if (not t.alive or t.state != "swim" or t.id in v.players or t.energy < 0.35
+                    or not self.in_water(t.x, t.y)):
+                continue
+            g = t.g
+            if g["care"] < 0.2 or max(g["flock"], g["cursor"], g["whim"]) < 0.45:
+                continue
+            if math.hypot(t.x - v.x, t.y - v.y) < 170:
+                t.state, t.vis, t.state_t = "play", v, random.uniform(15, 35)
+                v.players.add(t.id)
+                t.say("star", 1.5)
 
     # ---- サメ(まれに沖に現れ、大きなカメを狙う)
     def _shark_step(self, dt):
         if self.shark is None:
-            self.shark_t -= dt * (1.0 + self.night)     # サメは夕方〜夜に現れやすい
+            self.shark_t -= dt * (1.0 + self.night)
             if self.shark_t <= 0:
                 self.shark_t = random.uniform(*SHARK_GAP)
                 left = random.random() < 0.5
@@ -618,16 +1029,13 @@ class World:
             d = math.hypot(dx, dy) or 1.0
             sp = 46.0
             if d < 22 + tg.radius:
-                tg.say("ghost", 3.0)
                 self._kill(tg, "a shark attack")
-                tg.dead_t = CORPSE_TIME - 1.0          # 食べられたのですぐ消える
+                tg.dead_t = CORPSE_TIME - 1.0
                 self.fx.append(("bite", tg.x, tg.y))
                 sh.leaving, sh.target = True, None
         else:
-            if sh.leaving:
-                dx, dy = (1.0 if sh.vx >= 0 else -1.0), -0.2
-            else:
-                dx, dy = (1.0 if sh.vx >= 0 else -1.0), math.sin(sh.t * 0.7) * 0.4
+            dx = 1.0 if sh.vx >= 0 else -1.0
+            dy = -0.2 if sh.leaving else math.sin(sh.t * 0.7) * 0.4
             d = math.hypot(dx, dy)
             sp = 30.0 if not sh.leaving else 40.0
         k = min(1.0, dt * 1.5)
@@ -643,10 +1051,6 @@ class World:
             self.shark = None
             self.event("shark", "The shark swam away")
 
-    def drop_plant(self, x, y):
-        if len(self.plants) < PLANT_MAX + 6 and self.in_water(x, y + 10):
-            self.plants.append(Plant(x, y, 0.15))
-
     def _record(self, dt):
         self.hist_t += dt
         if self.hist_t >= HISTORY_DT:
@@ -660,7 +1064,7 @@ class World:
         groups = {}
         for e in list(self.eggs):
             e.t -= dt
-            if e.t <= 0:
+            if e.t <= 0 and self.night > 0.5:          # 子ガメは夜にふ化して海へ
                 self.eggs.remove(e)
                 t = Turtle(e.g, e.x, e.y, e.generation, sex=e.sex,
                            lineage=e.lineage, parents=e.parents)
@@ -682,35 +1086,46 @@ class World:
             g = mutate(random.choice(pool), rate=0.4)
             x, y = self.beach_point()
             self.eggs.append(Egg(g, x, y, self.max_gen + 1, lin, "drifted ashore",
-                                 EGG_TIME * 0.3, "FM"[i % 2]))
+                                 EGG_TIME * 0.1, "FM"[i % 2]))
         self.event("hatch", "The colony died out... 4 eggs drifted ashore (Lineage %s)" % lin)
 
     def _kill(self, t, cause):
         t.state, t.dead_t, t.cause = "dead", 0.0, cause
-        t.emote = "ghost"
-        t.emote_t = 3.0
+        t.emote, t.emote_t = "ghost", 3.0
         t.clutch = None
         self.deaths += 1
         self.gene_pool.append(t.g)
         self.gene_pool = self.gene_pool[-10:]
         self.event("death", "%s died of %s at %s" % (self.tag(t), cause, fmt_dur(t.age)))
+        mourners = []
         for o in self.turtles:
             if o.target is t:
                 o.target, o.state = None, "swim"
+            if o.alive and o is not t and (o.partner == t.id or o.aff.get(t.id, 0) >= FRIEND_AFF):
+                o.say("cry", 4.0)                         # 仲間が死ぬと悲しむ
+                o.joy = 0.0
+                mourners.append(o)
+                if o.partner == t.id:
+                    o.partner = None
+            o.aff.pop(t.id, None)
+        if mourners:
+            self.event("sad", "%s %s sad about %s" % (
+                ", ".join("#%d" % o.id for o in mourners[:3]), "is" if len(mourners) == 1 else "are",
+                "#%d" % t.id))
 
     def _decompose(self, force=False):
         keep = []
         for t in self.turtles:
             if t.state == "dead" and (force or t.dead_t > CORPSE_TIME):
-                if t.adult and self.plants:        # 死骸は分解されて近くの水草の栄養に
+                if t.adult and self.plants:
                     p = min(self.plants, key=lambda p: (p.x - t.x) ** 2 + (p.y - t.y) ** 2)
                     p.b = min(1.0, p.b + CORPSE_FERTILIZE)
                 continue
             keep.append(t)
         self.turtles = keep
 
-    # ---- 個体の行動
-    def _neighbors(self, alive):
+    # ---- 仲間・友達・パートナー
+    def _neighbors(self, alive, dt):
         for t in alive:
             cx = cy = vx = vy = 0.0
             n = 0
@@ -727,8 +1142,43 @@ class World:
                     vy += o.vy
                     n += 1
                     near = min(near, d2)
+                    if d2 < 60 * 60 and t.state != "sleep":      # 近くで過ごすと仲良くなる
+                        compat = 1.0 - abs(t.g["flock"] - o.g["flock"]) + (0.3 if o.lineage == t.lineage else 0)
+                        t.aff[o.id] = t.aff.get(o.id, 0.0) + dt * 0.003 * (0.4 + compat)
+                        if d2 < 35 * 35 and t.emote is None:
+                            if o.id == t.partner and random.random() < dt / 25:
+                                t.say("heart", 1.2)
+                            elif t.aff[o.id] >= FRIEND_AFF and random.random() < dt / 40:
+                                t.say(random.choice(("note", "blush")), 1.2)
             t.nb = (cx / n, cy / n, vx / n, vy / n, n, math.sqrt(near)) if n else None
+            # さみしい・混みすぎ
+            g = t.g
+            if t.state == "swim" and g["care"] > 0.3:
+                if g["flock"] > 0.7 and n == 0:
+                    t.lonely_t += dt
+                    if t.lonely_t > 120 and t.emote is None:
+                        t.say("dots" if t.lonely_t < 240 else "cry", 2.0)
+                        t.lonely_t = 60 if t.lonely_t > 240 else t.lonely_t
+                else:
+                    t.lonely_t = 0.0
+                if g["flock"] < 0.3 and n >= 4 and random.random() < dt / 20:
+                    t.say("sweat" if g["temper"] < 0.5 else "anger", 1.2, force=False)
 
+    def _decay_aff(self, dt):
+        self.aff_t += dt
+        if self.aff_t < 30:
+            return
+        self.aff_t = 0.0
+        for t in self.turtles:
+            t.aff = {k: v * 0.97 for k, v in t.aff.items() if v > 0.05}
+            if len(t.aff) > 10:
+                t.aff = dict(sorted(t.aff.items(), key=lambda kv: -kv[1])[:10])
+
+    def friends(self, t):
+        return [self.by_id[i] for i, v in sorted(t.aff.items(), key=lambda kv: -kv[1])
+                if v >= FRIEND_AFF and i in self.by_id and i != t.partner]
+
+    # ---- 個体の行動
     def _update_turtle(self, t, dt):
         t.anim += dt
         if t.emote_t > 0:
@@ -744,11 +1194,12 @@ class World:
         t.age += dt
         t.mate_cd -= dt
         t.eat_cd -= dt
+        t.clean_cd -= dt
         t.joy = max(0.0, t.joy - 0.015 * dt)
         t.annoy = max(0.0, t.annoy - 0.02 * dt)
         sleeping = t.state == "sleep"
         t.air -= dt * (0.4 if sleeping else 1.0)
-        t.energy -= t.metab * dt * (0.35 if sleeping else 1.0)
+        t.energy -= t.metab * dt * (SLEEP_METAB if sleeping else 1.0)
         t.fatigue += (-dt / t.sleep_len) if sleeping else (dt / t.awake_len)
         if t.energy <= 0:
             self._kill(t, "starvation")
@@ -767,10 +1218,15 @@ class World:
             if t.state != "flee_shark":
                 t.say("bang", 1.2)
                 t.target = None
-            t.state, t.state_t = "flee_shark", 1.5     # サメから逃げる(浅瀬へ)
-        if t.state in ("flipped", "dance", "lay", "breathe", "petted"):
+                if t.surf:
+                    t.surf.riders.discard(t.id)
+                    t.surf = None
+            t.state, t.state_t = "flee_shark", 1.5
+
+        st = t.state
+        if st in ("flipped", "dance", "lay", "breathe", "petted", "cleaning"):
             if t.state_t <= 0:
-                if t.state == "flipped":
+                if st == "flipped":
                     if t.annoy > 0.5:
                         t.say("anger")
                         t.state, t.state_t = "flee", 2.0
@@ -778,76 +1234,130 @@ class World:
                         t.joy = min(1.0, t.joy + 0.4)
                         t.say("note")
                         t.state, t.state_t = "dance", 1.2
-                elif t.state == "lay":
+                elif st == "lay":
                     self._lay(t)
-                elif t.state == "breathe":
+                elif st == "breathe":
                     t.air = t.breath_gap * random.uniform(0.8, 1.2)
+                    t.state = "sleep" if t.bed and t.night_pull(self.night) > 0.5 else "swim"
+                elif st == "cleaning":
                     t.state = "swim"
+                    t.clean_cd = random.uniform(2, 5) * HOUR
+                    t.say("flower", 1.5)
                 else:
                     t.state = "swim"
-        elif t.state == "sleep":
+            elif st == "cleaning":
+                t.joy = min(1.0, t.joy + 0.05 * dt)
+                t.annoy = max(0.0, t.annoy - 0.1 * dt)
+                t.energy = min(1.0, t.energy + 0.004 * dt)   # 寄生虫を取ってもらう
+                if random.random() < dt / 3:
+                    t.say(random.choice(("flower", "note", "blush")), 1.2, force=False)
+        elif st == "surf":
+            wv = t.surf
+            if wv is None or t.id not in wv.riders or not water:
+                t.state, t.surf = "swim", None
+        elif st == "play":
+            v = t.vis
+            if v is None or v.gone or v.leaving or t.state_t <= 0 or t.energy < 0.25:
+                t.state, t.vis = "swim", None
+                t.say("note", 1.0)
+            elif random.random() < dt / 3:
+                t.say(random.choice(("star", "note", "heart")), 1.0, force=False)
+        elif st == "sleep":
             t.fatigue = max(t.fatigue, -0.2)
             if t.fatigue <= 0 and t.night_pull(self.night) < 0.5:
-                t.state = "swim"                      # 朝になったら起きる
+                t.state, t.bed = "swim", None                # 朝になったら起きる
                 if self.night < 0.4 and self.phase in ("Sunrise", "Dawn twilight"):
                     t.say("note", 1.5)
-            elif t.air <= 0 and water:                # 寝ていても息継ぎに浮上する
-                t.state, t.state_t = "breathe", BREATH_TIME
-                t.say("puff", BREATH_TIME)
-                self.fx.append(("ripple", t.x, t.y))
+            elif t.air <= 0 and water:                       # 寝ていても息継ぎに浮上する
+                self._start_breathe(t)
             elif random.random() < dt / 3:
                 t.say("zzz", 1.5)
-        elif t.state in ("flee", "flee_shark") and t.state_t > 0:
+        elif st in ("flee", "flee_shark") and t.state_t > 0:
             pass
         else:
-            prev = t.state
-            t.state = "swim"
-            if t.clutch and (self.night > 0.3 or t.energy < 0.25):
-                t.state = "nest"                      # 産卵は暗くなってから(ウミガメの習性)
-                if t.nest is None:
-                    t.nest = self.beach_point()
-            elif not water:
-                pass                                  # 砂浜から海へ戻る途中
-            elif t.air <= 0:                          # 海面に浮上して息継ぎ
-                t.state, t.state_t = "breathe", BREATH_TIME
-                t.say("puff", BREATH_TIME)
-                self.fx.append(("ripple", t.x, t.y))
-            elif t.fatigue + t.night_pull(self.night) > 1 and t.energy > 0.15 and not t.clutch:
-                t.state = "sleep"
-                t.say("zzz", 2)
-            elif t.energy < t.eat_below + (0.1 if self.phase == "Sunrise" else 0.0) and (prev == "food" or t.energy < t.eat_below - 0.05):
-                if t.food is None or t.food.gone or t.food_t <= 0:
-                    t.food = self._choose_food(t)
-                    t.food_t = 1.0
-                t.food_t -= dt
-                if t.food is not None:
-                    t.state = "food"
-            elif prev == "court" and t.target is not None and t.target.alive:
-                t.state = "court"
-            elif self._can_mate(t):
-                p = self._find_partner(t)
-                if p:
-                    t.state, t.target = "court", p
-            if t.state == "swim" and t.g["whim"] > 0.7 and t.joy > 0.4 and random.random() < dt / 120:
-                t.state, t.state_t = "dance", 1.0     # 気まま: 気分で急にくるくる回る
-                t.say("note", 1.0)
-            if t.energy < 0.2 and random.random() < dt / 6:
-                t.say("sweat")
+            self._decide(t, dt, water)
         self._steer(t, dt, water)
 
+    def _start_breathe(self, t):
+        t.state, t.state_t = "breathe", BREATH_TIME
+        hx, hy = t.head()
+        self.fx.append(("ripple", hx, hy))
+
+    def _decide(self, t, dt, water):
+        prev = t.state
+        t.state = "swim"
+        sleepy = t.fatigue + t.night_pull(self.night) > 1 and t.energy > 0.15
+        hungry_line = t.eat_below + self.appetite_shift()
+        if t.clutch and self.night > 0.5:
+            t.state = "nest"                                  # 産卵は夜(ウミガメの習性)
+            if t.nest is None:
+                t.nest = self.beach_point()
+        elif not water:
+            pass                                              # 砂浜から海へ戻る途中
+        elif t.air <= 0:
+            self._start_breathe(t)
+        elif sleepy and not t.clutch:
+            if prev == "to_bed" and t.bed:
+                t.state = "to_bed"
+            elif self.reefs and (t.adult or random.random() < 0.7):   # 岩場やサンゴのそばで眠る
+                r = min(self.reefs, key=lambda r: (r.x - t.x) ** 2 + (r.y - t.y) ** 2 *
+                        (0.7 if r.kind == "rock" else 1.0))
+                t.bed, t.bed_kind = r.bed_point(), r.kind
+                t.state = "to_bed"
+            else:
+                t.bed, t.bed_kind = None, None
+                t.state = "sleep"
+                t.say("zzz", 2)
+        elif t.energy < hungry_line and (prev == "food" or t.energy < hungry_line - 0.05):
+            if t.food is None or t.food.gone or t.food_t <= 0:
+                t.food = self._choose_food(t)
+                t.food_t = 1.0
+            t.food_t -= dt
+            if t.food is not None:
+                t.state = "food"
+        elif prev == "court" and t.target is not None and t.target.alive:
+            t.state = "court"
+        elif prev == "to_clean" and t.goal is not None:
+            t.state = "to_clean"
+        elif self._can_mate(t) and self.night < 0.6:
+            p = self._find_partner(t)
+            if p:
+                t.state, t.target = "court", p
+        elif (t.adult and t.clean_cd <= 0 and 9 <= self.hour < 16 and t.energy > 0.45
+              and random.random() < dt / (90 if 11 <= self.hour < 14 else 240)):
+            school = self._free_school()
+            if school:                                        # サンゴで熱帯魚にクリーニングしてもらう
+                t.goal = school
+                t.state = "to_clean"
+        if t.state == "swim" and t.g["whim"] > 0.7 and t.joy > 0.4 and random.random() < dt / 120:
+            t.state, t.state_t = "dance", 1.0
+            t.say("note", 1.0)
+        if t.state == "swim" and self.phase in ("Sunset", "Dusk") and random.random() < dt / 200:
+            t.say("flower", 1.2, force=False)               # 夕焼けがきれい
+        if t.energy < 0.2 and random.random() < dt / 6:
+            t.say("sweat")
+
+    def _free_school(self):
+        free = [s for s in self.schools if s.cleaning is None]
+        return random.choice(free) if free else None
+
     def _can_mate(self, t):
-        return (t.alive and t.state in ("swim", "court") and t.adult and t.energy > 0.8
+        return (t.alive and t.state in ("swim", "court") and t.adult and t.energy > 0.5
                 and t.mate_cd <= 0 and not t.clutch and self.in_water(t.x, t.y)
                 and self._pop < MAX_TURTLES - 1)
 
     def _find_partner(self, t):
-        best, bd = None, 280.0
+        best, bd = None, 450.0
         for o in self.turtles:
             if o is t or o.sex == t.sex or not self._can_mate(o):
                 continue
             d = math.hypot(o.x - t.x, o.y - t.y)
-            if distance(t.g, o.g) < 0.04:   # 近すぎる近縁は避ける
+            if distance(t.g, o.g) < 0.04:
                 d *= 3
+            if o.id == t.partner:              # いつものパートナーを選びやすい
+                d *= 0.3
+            elif t.aff.get(o.id, 0) >= FRIEND_AFF:
+                d *= 0.6
             if d < bd:
                 best, bd = o, d
         return best
@@ -872,10 +1382,10 @@ class World:
         if f.gone:
             return
         if f.kind == "plant":
-            bite = min(PLANT_BITE, f.b - PLANT_MIN)
             if f.b < PLANT_EDIBLE:
                 t.food = None
                 return
+            bite = min(PLANT_BITE, f.b - PLANT_MIN)
             f.b -= bite
             t.energy += bite * (1.5 if t.herbivore else 0.9)
         else:
@@ -885,7 +1395,9 @@ class World:
         t.joy = min(1.0, t.joy + 0.1)
         t.eat_cd = 1.2
         t.food_t = 0.0
-        if random.random() < 0.3:
+        if t.energy > 0.92:
+            t.say("flower", 1.2)                    # おなかいっぱい
+        elif random.random() < 0.3:
             t.say("note", 1.0)
 
     def _lay(self, t):
@@ -900,21 +1412,41 @@ class World:
         t.state = "swim"
         self.laid += n
         t.say("sparkle", 1.5)
-        self.event("lay", "%s laid %d egg%s on the beach" % (self.tag(t), n, "s" if n != 1 else ""))
+        self.event("lay", "%s laid %d egg%s on the night beach" % (self.tag(t), n, "s" if n != 1 else ""))
 
     def _steer(self, t, dt, water):
         sp = t.max_speed
         dx = dy = 0.0
         mul = 1.0
         st = t.state
-        if st in ("sleep", "flipped", "lay", "breathe", "petted"):
+        if st in ("sleep", "flipped", "lay", "breathe", "petted", "cleaning"):
             mul = 0.0
         elif st == "flee_shark" and self.shark:
             sh = self.shark
             dx, dy = t.x - sh.x, t.y - sh.y
             n0 = math.hypot(dx, dy) or 1.0
-            dx, dy = dx / n0, dy / n0 + 0.9             # 離れながら浅瀬(下)へ
+            dx, dy = dx / n0, dy / n0 + 0.9
             mul = 1.6
+        elif st == "surf" and t.surf:
+            wv = t.surf
+            t.y += (wv.y + 4 - t.y) * min(1.0, dt * 6)      # 波頭に乗って砂浜の方へ
+            t.vy = wv.sp
+            t.vx *= 0.9
+            t.x += t.vx * dt
+            t.dir = 2
+            if not (wv.x - 10 <= t.x <= wv.x + wv.len + 10):
+                wv.riders.discard(t.id)
+            return
+        elif st == "play" and t.vis:
+            v = t.vis
+            t.orbit += dt * (2.2 if v.kind == "dolphin" else 0.8)
+            if v.kind == "dolphin":                        # イルカのまわりをくるくる
+                tx, ty = v.x + math.cos(t.orbit) * 38, v.y + math.sin(t.orbit) * 28
+            else:                                          # マンタの後ろについて泳ぐ
+                tx = v.x - (1 if v.vx >= 0 else -1) * (30 + 12 * math.cos(t.orbit))
+                ty = v.y + 18 * math.sin(t.orbit)
+            dx, dy = tx - t.x, ty - t.y
+            mul = 1.5
         elif st == "dance":
             mul = 0.2
             t.dir = int(t.anim / 0.15) % 4
@@ -926,7 +1458,28 @@ class World:
                 t.say("egg", LAY_TIME)
                 mul = 0.0
         elif not water:
-            dx, dy = random.uniform(-0.2, 0.2), -1.0   # 砂浜では海(上)へ向かう
+            dx, dy = random.uniform(-0.2, 0.2), -1.0
+        elif st == "to_bed" and t.bed:
+            dx, dy = t.bed[0] - t.x, t.bed[1] - t.y
+            mul = 0.8
+            if math.hypot(dx, dy) < 6:
+                t.state = "sleep"
+                t.say("zzz", 2)
+                mul = 0.0
+        elif st == "to_clean" and t.goal:
+            s = t.goal
+            dx, dy = s.home.x - t.x, s.home.y - t.y
+            if s.cleaning not in (None, t):
+                t.state, t.goal = "swim", None
+            elif math.hypot(dx, dy) < s.home.radius * 0.8:
+                t.state, t.state_t = "cleaning", random.uniform(10, 18)
+                s.cleaning = t
+                t.goal = None
+                t.say("flower", 1.5)
+                mul = 0.0
+                if self.time - self.clean_log_t > 240:
+                    self.clean_log_t = self.time
+                    self.event("clean", "%s is being cleaned by tropical fish" % self.tag(t))
         elif st == "food":
             f = t.food
             if f is None or f.gone:
@@ -947,13 +1500,12 @@ class World:
             else:
                 dx, dy = o.x - t.x, o.y - t.y
                 if random.random() < dt / 2:
-                    t.say("heart", 1.0)
+                    t.say("heart" if o.id != t.partner or random.random() < 0.5 else "blush", 1.0)
         elif st == "flee" and self.cursor:
             dx, dy = t.x - self.cursor[0], t.y - self.cursor[1]
             mul = 1.5
 
         care = t.g["care"]
-        # マウスへの反応(無頓着な個体はほとんど気にしない)
         if self.cursor and water and st in ("swim", "court", "food") and care > 0.25:
             cx, cy = self.cursor
             d = math.hypot(cx - t.x, cy - t.y)
@@ -977,17 +1529,16 @@ class World:
                     mul = 1.3
                     if t.annoy > 0.4 and random.random() < dt / 2:
                         t.say("anger", 1.2)
-                if d < 45:   # 近くにずっといると、気の短い個体はうっとうしがる
+                if d < 45:
                     t.annoy = min(1.0, t.annoy + max(0.0, t.g["temper"] - 0.3) * 0.08 * dt)
 
         if dx == 0 and dy == 0 and mul > 0:
-            # 気ままに泳ぐ + 群れ(群れたがり / 一人が好き / 中庸 / 無頓着)
             jitter = 0.4 + 2.0 * t.g["whim"] + 2.5 * t.annoy
             t.heading += random.gauss(0, jitter) * dt
             dx, dy = math.cos(t.heading), math.sin(t.heading)
             nb = t.nb
             fw = (t.g["flock"] - 0.5) * 2 * care
-            if self.phase in ("Sunset", "Dusk"):     # 夕方は寄り集まる
+            if self.phase in ("Sunset", "Dusk"):
                 fw = min(1.0, fw + 0.4 * care)
             if nb and abs(fw) > 0.05:
                 cx, cy, avx, avy, n, near = nb
@@ -1007,14 +1558,22 @@ class World:
                 else:
                     dx += ox / on * fw * 1.2
                     dy += oy / on * fw * 1.2
+            # パートナーや友達のそばにいたがる
+            for other, pull, gap in ((self.by_id.get(t.partner), 0.6, 60), (t.best_friend(self.by_id), 0.4, 55)):
+                if other is not None and other.state not in ("sleep", "dead"):
+                    ox, oy = other.x - t.x, other.y - t.y
+                    od = math.hypot(ox, oy) or 1.0
+                    if od > gap:
+                        dx += ox / od * pull
+                        dy += oy / od * pull
             mul *= 0.55 + 0.4 * t.joy
             t.heading = math.atan2(dy, dx) if (dx or dy) else t.heading
         elif dx or dy:
             t.heading = math.atan2(dy, dx)
         if not water:
-            mul *= 0.35                               # 砂浜ではゆっくり這う
-        elif st not in ("flee_shark", "nest"):
-            mul *= 1.0 - 0.3 * self.night             # 夜はゆっくり
+            mul *= 0.35
+        elif st not in ("flee_shark", "nest", "play"):
+            mul *= 1.0 - 0.3 * self.night
         n = math.hypot(dx, dy) or 1.0
         tx, ty = dx / n * sp * mul, dy / n * sp * mul
         k = min(1.0, dt * 2.0)
@@ -1033,7 +1592,7 @@ class World:
             t.y = m
         if t.y > self.h - m:
             t.y = self.h - m
-        if water and st not in ("nest",):              # 泳いでいる個体は砂浜に上がらない
+        if water and st not in ("nest",):
             s = self.shore(t.x) - m
             if t.y > s:
                 t.y = s
@@ -1063,11 +1622,12 @@ class World:
                 if d2 > r * r:
                     continue
                 d = math.sqrt(d2) or 0.01
-                push = (r - d) * 0.25
-                a.x -= dx / d * push
-                a.y -= dy / d * push
-                b.x += dx / d * push
-                b.y += dy / d * push
+                if not (a.state == "sleep" and b.state == "sleep"):
+                    push = (r - d) * 0.25
+                    a.x -= dx / d * push
+                    a.y -= dy / d * push
+                    b.x += dx / d * push
+                    b.y += dy / d * push
                 if ((a.state == "court" and a.target is b) or (b.state == "court" and b.target is a)) \
                         and a.sex != b.sex and self._can_mate(a) and self._can_mate(b):
                     self._mate(a, b)
@@ -1080,7 +1640,7 @@ class World:
                         removed.update((a.id, b.id))
                         self._merge(a, b)
                         break
-        for t in alive:     # 分裂: 合体して大きくなった個体が満腹だと2つに分かれる
+        for t in alive:
             if (t.id not in removed and t.alive and t.extra >= 1 and t.energy > 0.85
                     and t.state == "swim" and random.random() < dt / 600):
                 self._split(t)
@@ -1088,19 +1648,23 @@ class World:
     def _mate(self, a, b):
         mom, dad = (a, b) if a.sex == "F" else (b, a)
         room = MAX_TURTLES - self.population()
-        n = min(room, 1 + int(mom.g["fertility"] * 2.99))
+        n = min(room, 3 + int(mom.g["fertility"] * 3.99),
+                int((mom.energy - 0.12) / EGG_COST))        # 産める数は母親の栄養しだい
         if n <= 0:
             return
+        again = mom.partner == dad.id
         for t in (a, b):
             t.mate_cd = MATE_COOLDOWN * (0.8 + 0.4 * random.random())
-            t.energy -= EGG_COST * n if t is mom else 0.2     # 卵の栄養は母親が出す
+            t.energy -= EGG_COST * n if t is mom else 0.2
             t.state, t.target = "swim", None
             t.say("heart", 2.0)
+        mom.partner, dad.partner = dad.id, mom.id
         mom.clutch = [{"g": mutate(crossover(mom.g, dad.g)),
                        "gen": max(mom.generation, dad.generation) + 1,
                        "par": "#%d x #%d" % (mom.id, dad.id)} for _ in range(n)]
         mom.nest = None
-        self.event("mate", "%s and %s mated" % (self.tag(mom), self.tag(dad)))
+        self.event("mate", "%s and %s %s" % (self.tag(mom), self.tag(dad),
+                                             "renewed their bond" if again else "fell in love and mated"))
 
     def _merge(self, a, b):
         t = Turtle(blend(a.g, b.g), (a.x + b.x) / 2, (a.y + b.y) / 2,
@@ -1110,11 +1674,14 @@ class World:
         t.energy = min(1.0, a.energy + b.energy)
         t.joy = 0.8
         t.say("sparkle", 2.5)
+        t.aff = {k: v for k, v in list(a.aff.items()) + list(b.aff.items()) if k not in (a.id, b.id)}
         self.turtles = [x for x in self.turtles if x is not a and x is not b]
         self.turtles.append(t)
         for o in self.turtles:
             if o.target in (a, b):
                 o.target, o.state = None, "swim"
+            if o.partner in (a.id, b.id):
+                o.partner = t.id
         self.merges += 1
         self.event("merge", "%s and %s merged into %s" % (self.tag(a), self.tag(b), self.tag(t)))
 
@@ -1127,6 +1694,7 @@ class World:
             k.energy = t.energy / 2
             k.say("sparkle", 2.0)
             kids.append(k)
+        kids[0].aff[kids[1].id] = kids[1].aff[kids[0].id] = FRIEND_AFF * 1.5   # 分かれた2体は友達
         self.turtles = [x for x in self.turtles if x is not t] + kids
         for o in self.turtles:
             if o.target is t:
@@ -1147,7 +1715,7 @@ class World:
 
     def pet(self, t, dist):
         """カメの上でカーソルを動かす = なでる。好き嫌いは性格しだい。"""
-        if not t.alive or t.state in ("lay", "flipped", "flee_shark"):
+        if not t.alive or t.state in ("lay", "flipped", "flee_shark", "surf"):
             return
         t.pet_acc += dist
         if t.pet_acc < PET_STROKE:
@@ -1158,15 +1726,15 @@ class World:
         if t.state == "sleep":
             if like > 0.3 or t.g["temper"] < 0.3:
                 t.joy = min(1.0, t.joy + 0.05)
-                t.say("zzz", 1.2)                       # 気持ちよさそうに寝たまま
+                t.say("zzz", 1.2)
                 return
-            t.state = "swim"
+            t.state, t.bed = "swim", None
             t.fatigue = min(t.fatigue, 0.6)
         if like > 0:
             t.joy = min(1.0, t.joy + 0.15)
             t.annoy = max(0.0, t.annoy - 0.1)
             t.state, t.state_t = "petted", 1.5
-            t.say("heart" if t.joy > 0.6 else "note", 1.2)
+            t.say("heart" if t.joy > 0.6 else random.choice(("note", "blush")), 1.2)
         else:
             t.annoy = min(1.0, t.annoy + 0.12 + 0.2 * t.g["temper"])
             t.say("anger" if t.annoy > 0.4 else "sweat", 1.2)
@@ -1177,15 +1745,18 @@ class World:
         if t.state == "lay":
             t.say("anger", 1.0)
             return
+        if t.surf:
+            t.surf.riders.discard(t.id)
+            t.surf = None
         if t.state == "sleep":
             t.annoy = min(1.0, t.annoy + 0.25 + 0.4 * t.g["temper"])
             t.fatigue = min(t.fatigue, 0.6)
-            t.state, t.state_t = "flipped", 1.5
+            t.state, t.state_t, t.bed = "flipped", 1.5, None
             t.say("anger" if t.annoy > 0.5 else "question", 1.5)
             return
         t.annoy = min(1.0, t.annoy + 0.1 + 0.35 * t.g["temper"] * t.g["care"])
         t.state, t.state_t = "flipped", 2.5
-        t.say("bang", 1.0)
+        t.say("surprise", 1.0)
 
     def turtle_info(self, t):
         """カメのステータス(英語の行のリスト)。"""
@@ -1194,51 +1765,79 @@ class World:
                     "Died of %s at %s" % (t.cause, fmt_dur(t.age))]
         e = t.energy
         health = "Good" if e > 0.7 else "OK" if e > 0.4 else "Hungry" if e > 0.2 else "Starving"
-        mood = "annoyed" if t.annoy > 0.5 else "happy" if t.joy > 0.6 else "calm"
+        mood = ("sad" if t.emote == "cry" else "annoyed" if t.annoy > 0.5
+                else "happy" if t.joy > 0.6 else "calm")
+        bed = {"rock": "sleeping by the rocks", "coral": "sleeping in the coral"}.get(t.bed_kind, "sleeping")
         now = {"swim": "swimming", "food": "looking for food", "court": "courting",
-               "nest": "going ashore to lay eggs", "lay": "laying eggs", "sleep": "sleeping",
+               "nest": "going ashore to lay eggs", "lay": "laying eggs", "sleep": bed,
                "flipped": "flipped over!", "dance": "dancing with joy", "flee": "running away",
-               "flee_shark": "fleeing from the shark!", "breathe": "surfacing for air",
-               "petted": "enjoying being petted"}
+               "flee_shark": "fleeing from the shark!", "breathe": "poking its head out for air",
+               "petted": "enjoying being petted", "to_bed": "heading to bed",
+               "to_clean": "going to the cleaning station", "cleaning": "being cleaned by fish",
+               "surf": "surfing!", "play": "playing with the visitor"}
         if not self.in_water(t.x, t.y) and t.state == "swim":
             st = "crawling to the sea"
         else:
             st = now.get(t.state, t.state)
+        style = STYLES[style_of(t.g)]
         lines = ["#%d  %s  Lineage %s  Gen %d" % (t.id, "Female" if t.sex == "F" else "Male",
                                                    t.lineage, t.generation),
                  "Age %s / %s%s" % (fmt_dur(t.age), fmt_dur(t.lifespan),
-                                    "" if t.adult else "  (hatchling)"),
+                                    "" if t.adult else "  (young)"),
                  "Health %d%% (%s)   Mood: %s" % (round(e * 100), health, mood),
                  "%s   Size x%d%s" % ("Herbivore" if t.herbivore else "Omnivore", t.scale,
                                       "  (shark target)" if t.scale >= SHARK_PREY_SCALE else ""),
+                 "Look: %s, %s%s" % (color_name(t.g), style, "  (rare!)" if is_dark(t.g) or style == "heart" else ""),
                  "Traits: " + (", ".join(traits(t.g)) or "Average")]
+        p = self.by_id.get(t.partner)
+        fr = self.friends(t)
+        if p or fr:
+            lines.append(("Partner: %s   " % self.tag(p) if p else "") +
+                         ("Friends: " + ", ".join("#%d" % f.id for f in fr[:4]) if fr else ""))
         if t.parents:
             lines.append("Origin: " + t.parents)
         if t.clutch:
             lines.append("Carrying %d eggs%s" % (len(t.clutch),
-                                                 "" if self.night > 0.3 else " (waits for dark to nest)"))
+                                                 "" if self.night > 0.5 else " (waits for night to nest)"))
         if t.pets:
             lines.append("Petted %d time%s" % (t.pets, "s" if t.pets != 1 else ""))
         lines.append("Now: " + st)
         return lines
 
     def hover_info(self, x, y):
-        """マウスの下にある卵・クラゲ・水草・サメの説明(カメはクリックで表示)。"""
+        """マウスの下にあるもの(カメ以外)の説明。"""
         for e in self.eggs:
             if math.hypot(e.x - x, e.y - y) < 7:
                 return ["Egg  Lineage %s  Gen %d" % (e.lineage, e.generation),
-                        "Parents: %s" % e.parents, "Hatches in %s" % fmt_dur(max(0, e.t))]
+                        "Parents: %s" % e.parents,
+                        ("Ready - hatches at night" if e.t <= 0 else "Hatches in %s (at night)" % fmt_dur(e.t))]
         sh = self.shark
         if sh and math.hypot(sh.x - x, sh.y - y) < 32:
             return ["Shark!", "Hunts turtles of size x%d or bigger offshore" % SHARK_PREY_SCALE,
                     "Small turtles and the shallows are safe"]
+        for v in self.visitors:
+            if math.hypot(v.x - x, v.y - y) < 26:
+                return {"dolphin": ["Dolphin", "Friendly! Turtles gather to play with it"],
+                        "manta": ["Manta ray", "A gentle giant. Turtles follow it around"],
+                        "hermit": ["Hermit crab", "Just passing by on the beach"],
+                        "coconut": ["Coconut crab", "Comes out on the beach at night",
+                                    "Hatchlings get startled"]}[v.kind]
+        for f in self.fish:
+            if abs(f.x - x) < 6 and abs(f.y - y) < 5:
+                return ["Tropical fish", "They live around the coral and",
+                        "clean the turtles' shells and skin"]
         for j in self.jellies:
             if math.hypot(j.x - x, j.y - y) < 8:
                 return ["Jellyfish", "Food for omnivores"]
+        for r in self.reefs:
+            if math.hypot(r.x - x, r.y - y) < r.radius:
+                if r.kind == "coral":
+                    return ["Coral reef", "Home of tropical fish. Turtles rest,",
+                            "sleep and get cleaned here"]
+                return ["Rocks", "A quiet place for turtles to sleep at night"]
         for p in self.plants:
             if math.hypot(p.x - x, p.y - y) < 4 + 3 * p.stage:
-                return ["Seaweed  %d%%" % round(p.b * 100),
-                        "Regrows when not overgrazed"]
+                return ["Seaweed  %d%%" % round(p.b * 100), "Grows in patches; regrows when not overgrazed"]
         return None
 
     # ---- 留守中の時間経過(1分刻みでまとめて計算)
@@ -1257,9 +1856,10 @@ class World:
                 self._offline_step(dt)
         self.jellies = []
         self.shark = None
+        self.visitors = []
         self.update_daylight(self.clock(), log=False)
         for t in self.turtles:
-            t.emote, t.food, t.target = None, None, None
+            t.emote, t.food, t.target, t.surf, t.vis, t.goal = None, None, None, None, None, None
             if t.state not in ("sleep", "dead"):
                 t.state = "swim"
         self._decompose(force=True)
@@ -1270,22 +1870,23 @@ class World:
         self._off_ts = getattr(self, "_off_ts", self.clock()) + dt
         self.update_daylight(self._off_ts, log=False)
         self._grow_plants(dt)
-        jelly_in = min(JELLY_MAX, dt / JELLY_INTERVAL)      # 流れてくるクラゲ(平均)
+        jelly_in = min(JELLY_MAX, dt / JELLY_INTERVAL)
         alive = self.alive()
         self._pop = len(alive) + len(self.eggs)
+        self.by_id = {t.id: t for t in alive}
         random.shuffle(alive)
+        shift = self.appetite_shift()
         for t in alive:
             t.age += dt
             t.mate_cd -= dt
             awake = t.awake_len / (t.awake_len + t.sleep_len) * (1 - 0.8 * t.night_pull(self.night))
-            t.energy -= t.metab * dt * (awake + 0.35 * (1 - awake))
+            t.energy -= t.metab * dt * (awake + SLEEP_METAB * (1 - awake))
             t.joy = max(0.0, t.joy - 0.015 * dt)
             t.annoy = max(0.0, t.annoy - 0.02 * dt)
-            # 食べる(雑食はクラゲ優先、草食は水草)
             tries = 0
-            while t.energy < t.eat_below and tries < 6:
+            while t.energy < t.eat_below + shift and tries < 6:
                 tries += 1
-                if not t.herbivore and jelly_in >= 1 or (not t.herbivore and random.random() < jelly_in):
+                if not t.herbivore and (jelly_in >= 1 or random.random() < jelly_in):
                     jelly_in = max(0.0, jelly_in - 1)
                     t.energy += JELLY_ENERGY
                     continue
@@ -1300,38 +1901,36 @@ class World:
                 self._kill(t, "starvation")
             elif t.age >= t.lifespan:
                 self._kill(t, "old age")
-        self._decompose(force=True)
-        # サメ(平均 30分に1回現れ、半分の確率で大きなカメを1匹食べる)
-        if random.random() < dt / (sum(SHARK_GAP) / 2) * 0.5:
+        if random.random() < dt / (sum(SHARK_GAP) / 2) * 0.5 * (1 + self.night):
             big = [t for t in self.turtles if t.alive and t.scale >= SHARK_PREY_SCALE]
             if big:
                 self._kill(random.choice(big), "a shark attack")
         self._decompose(force=True)
-        # 卵がかえる(子ガメは波打ち際の海へ)
-        for e in list(self.eggs):
-            e.t -= dt
-            if e.t <= 0:
-                self.eggs.remove(e)
-                x = e.x
-                t = Turtle(e.g, x, self.shore(x) - 15, e.generation, age=-e.t, sex=e.sex,
-                           lineage=e.lineage, parents=e.parents)
-                t.energy = HATCH_ENERGY
-                self.turtles.append(t)
-                self.births += 1
-                self.max_gen = max(self.max_gen, e.generation)
-        # 交尾 → すぐ砂浜に産卵
-        for t in self.turtles:
-            if t.clutch:
-                t.x, t.y = self.beach_point(t.x)
-                self._lay(t)
-                t.x, t.y = self.water_point(30)
-        fem = [t for t in self.turtles if t.sex == "F" and self._can_mate(t)]
-        mal = [t for t in self.turtles if t.sex == "M" and self._can_mate(t)]
-        random.shuffle(fem)
-        random.shuffle(mal)
-        for f, m in zip(fem, mal):
-            if random.random() < 0.5 and self._can_mate(f) and self._can_mate(m):
-                self._mate(f, m)
+        if self.night > 0.5:
+            for e in list(self.eggs):                  # 卵がかえるのは夜
+                if e.t - dt <= 0:
+                    self.eggs.remove(e)
+                    t = Turtle(e.g, e.x, self.shore(e.x) - 15, e.generation, age=0.0, sex=e.sex,
+                               lineage=e.lineage, parents=e.parents)
+                    t.energy = HATCH_ENERGY
+                    self.turtles.append(t)
+                    self.births += 1
+                    self.max_gen = max(self.max_gen, e.generation)
+            for t in self.turtles:                     # 産卵も夜
+                if t.alive and t.clutch:
+                    t.x, t.y = self.beach_point(t.x)
+                    self._lay(t)
+                    t.x, t.y = self.water_point(30)
+        for e in self.eggs:
+            e.t = max(0.0, e.t - dt)
+        if self.night < 0.6:
+            fem = [t for t in self.turtles if t.sex == "F" and self._can_mate(t)]
+            mal = [t for t in self.turtles if t.sex == "M" and self._can_mate(t)]
+            random.shuffle(fem)
+            random.shuffle(mal)
+            for f, m in zip(fem, mal):
+                if random.random() < 0.5 and self._can_mate(f) and self._can_mate(m):
+                    self._mate(f, m)
         if not self.alive() and not self.eggs:
             self._refound()
         self._record(dt)
@@ -1342,6 +1941,7 @@ class World:
                 "turtles": [t.to_dict() for t in self.turtles if t.alive],
                 "eggs": [e.to_dict() for e in self.eggs],
                 "plants": [[p.x, p.y, p.b] for p in self.plants],
+                "reefs": [r.to_list() for r in self.reefs],
                 "births": self.births, "deaths": self.deaths, "laid": self.laid,
                 "merges": self.merges, "splits": self.splits, "max_gen": self.max_gen,
                 "n_lineages": self.n_lineages, "gene_pool": self.gene_pool,
@@ -1349,9 +1949,14 @@ class World:
 
     @classmethod
     def from_dict(cls, d):
-        wd = cls(d.get("w", 640), d.get("h", 420))
+        wd = cls(d.get("w", 700), d.get("h", 440))
+        if d.get("reefs"):
+            wd.reefs = [Reef(*r) for r in d["reefs"]]
+            wd.seed_fish()
+        else:
+            wd.seed_reefs()
         wd.turtles = [Turtle.from_dict(x) for x in d.get("turtles", [])]
-        for t in wd.turtles:    # 旧版のデータは陸地の分だけ上にずらす
+        for t in wd.turtles:
             if wd.in_water(t.x, t.y) is False and not t.clutch:
                 t.y = wd.shore(t.x) - 20
         wd.eggs = [Egg.from_dict(e) for e in d.get("eggs", [])]
@@ -1368,6 +1973,7 @@ class World:
         wd.n_lineages = d.get("n_lineages", 0) or max(1, len({t.lineage for t in wd.turtles}))
         wd.events = [tuple(e) for e in d.get("events", []) if len(e) == 3]
         wd.history = [tuple(h) for h in d.get("history", [])]
+        wd.by_id = {t.id: t for t in wd.turtles}
         return wd
 
     def resize(self, w, h):
@@ -1378,29 +1984,38 @@ class World:
         self.w, self.h = w, h
         new_lt = self.land_top
 
-        def my(y):   # 水の部分と陸の部分をそれぞれ伸縮
+        def my(y):
             if y <= old_lt:
                 return y * new_lt / old_lt
             return new_lt + (y - old_lt) * (h - new_lt) / max(1.0, old_h - old_lt)
-        for o in self.turtles + self.eggs + self.plants + self.jellies + ([self.shark] if self.shark else []):
+        objs = (self.turtles + self.eggs + self.plants + self.jellies + self.reefs + self.fish
+                + self.visitors + ([self.shark] if self.shark else []))
+        for o in objs:
             o.x *= sx
             o.y = my(o.y)
+        for v in self.visitors:
+            v.y0 = my(v.y0)
         for t in self.turtles:
             if t.nest:
                 t.nest = (t.nest[0] * sx, my(t.nest[1]))
+            if t.bed:
+                t.bed = (t.bed[0] * sx, my(t.bed[1]))
+        for wv in self.waves:
+            wv.reset(self, first=True)
+        self.big_wave = None
 
 
 # ---------------------------------------------------------------- 保存先(Google ドライブ)
-def find_save_dir():
+def find_save_dir(env_name="UMIGAME_SAVE_DIR", folder="UmigamePet"):
     """(フォルダ, Googleドライブかどうか) を返す。"""
-    env = os.environ.get("UMIGAME_SAVE_DIR")
+    env = os.environ.get(env_name)
     if env:
         return env, True
     home = os.path.expanduser("~")
     names = ("マイドライブ", "My Drive")
     cands = []
     if sys.platform.startswith("win"):
-        for letter in string.ascii_uppercase[3:]:          # D: 〜 Z:(G: が既定)
+        for letter in string.ascii_uppercase[3:]:
             for n in names:
                 cands.append(f"{letter}:\\{n}")
         for n in names:
@@ -1417,10 +2032,10 @@ def find_save_dir():
     for c in cands:
         try:
             if os.path.isdir(c):
-                return os.path.join(c, "UmigamePet"), True
+                return os.path.join(c, folder), True
         except OSError:
             pass
-    return os.path.join(home, "UmigamePet"), False
+    return os.path.join(home, folder), False
 
 
 def save_world(world, folder):
@@ -1484,19 +2099,30 @@ FRAMES = (
      ".F..SSS..F.",
      ".....T....."),
 )
+# 息継ぎ: 首をのばして頭を水面に出す(W=水面の輪)。甲羅は水の中で薄く見える
+BREATHE_HEAD = ("...WWWWW...",
+                "..W.EHE.W..",
+                "...WHHHW...",
+                "....HHH....")
 
+# 表情: (色の対応, 形)。X は1色目
 EMOTES = {
-    "heart": ("#ff4f7b", (".XX.XX.", "XXXXXXX", "XXXXXXX", ".XXXXX.", "..XXX..", "...X...")),
-    "note": ("#ffd23f", ("...XXX.", "...X.X.", "...X...", "...X...", ".XXX...", "XXXX...", ".XX....")),
-    "anger": ("#ff2a2a", (".X...X.", "XX...XX", ".......", ".......", "XX...XX", ".X...X.")),
-    "zzz": ("#ffffff", ("XXXXX", "...X.", "..X..", ".X...", "XXXXX")),
-    "bang": ("#ffffff", (".X.", ".X.", ".X.", ".X.", "...", ".X.")),
-    "question": ("#ffffff", (".XXX.", "X...X", "...X.", "..X..", ".....", "..X..")),
-    "sparkle": ("#fff7a8", ("...X...", "...X...", "..XXX..", "XXXXXXX", "..XXX..", "...X...", "...X...")),
-    "sweat": ("#2f7fff", ("..X..", ".XXX.", "XXXXX", "XXXXX", ".XXX.")),
-    "egg": ("#fffdf0", (".XX.", "XXXX", "XXXX", "XXXX", ".XX.")),
-    "puff": ("#ffffff", (".XX.X.", "XXXXXX", ".XXXX.")),
-    "ghost": ("#f4f4ff", (".XXX.", "XXXXX", "X.X.X", "XXXXX", "XXXXX", "X.X.X")),
+    "heart": ({"X": "#ff6f96"}, (".XX.XX.", "XXXXXXX", "XXXXXXX", ".XXXXX.", "..XXX..", "...X...")),
+    "note": ({"X": "#ffd23f"}, ("...XXX.", "...X.X.", "...X...", "...X...", ".XXX...", "XXXX...", ".XX....")),
+    "anger": ({"X": "#ff3a3a"}, (".X...X.", "XX...XX", ".......", ".......", "XX...XX", ".X...X.")),
+    "zzz": ({"X": "#ffffff"}, ("XXXXX", "...X.", "..X..", ".X...", "XXXXX")),
+    "bang": ({"X": "#ffffff"}, (".X.", ".X.", ".X.", ".X.", "...", ".X.")),
+    "question": ({"X": "#ffffff"}, (".XXX.", "X...X", "...X.", "..X..", ".....", "..X..")),
+    "surprise": ({"X": "#ffffff"}, (".X..XXX.", ".X.X...X", ".X....X.", ".X...X..", "........", ".X...X..")),
+    "sparkle": ({"X": "#fff7a8"}, ("...X...", "...X...", "..XXX..", "XXXXXXX", "..XXX..", "...X...", "...X...")),
+    "star": ({"X": "#ffe14d", "o": "#fff6b8"}, ("...X...", "..XoX..", "XXXoXXX", ".XoooX.", "..XoX..", ".XX.XX.", "X.....X")),
+    "sweat": ({"X": "#5aa8ff"}, ("..X..", ".XXX.", "XXXXX", "XXXXX", ".XXX.")),
+    "cry": ({"X": "#7cc4ff"}, ("X...X", "X...X", "XX.XX", "XX.XX", ".....", "X...X")),
+    "blush": ({"X": "#ff9cc0"}, ("XX...XX", "XXX.XXX", ".X...X.")),
+    "flower": ({"X": "#ffb3d1", "o": "#ffe066"}, (".X.X.", "XXoXX", ".XoX.", "XXoXX", ".X.X.")),
+    "dots": ({"X": "#ffffff"}, ("X.X.X",)),
+    "egg": ({"X": "#fffdf0"}, (".XX.", "XXXX", "XXXX", "XXXX", ".XX.")),
+    "ghost": ({"X": "#f4f4ff"}, (".XXX.", "XXXXX", "X.X.X", "XXXXX", "XXXXX", "X.X.X")),
 }
 PLANT_ART = (
     (".g.g.",
@@ -1528,7 +2154,54 @@ PLANT_ART = (
      "....g.g....",
      "...G...G..."),
 )
-# サメ(上から見た、右向き)。B=背 b=腹側の縁 E=目 F=ひれ
+# サンゴ・岩(上から見た形)。X=色 x=影 o=明るい所
+REEF_ART = {
+    "branch": ("..X.X..", ".XoXoX.", "X.XxX.X", ".XxXxX.", "XX.X.XX", ".X.x.X.", "...X..."),
+    "brain": (".XXXX.", "XoxXxX", "XxXoxX", "XXxXoX", ".XXXX."),
+    "fan": ("X.X.X.X", "XoXoXoX", ".XxXxX.", "..XXX..", "...x..."),
+    "table": (".XXXXX.", "XoXoXoX", "XXXXXXX", "XxXxXxX", ".XXXXX."),
+    "rock1": ("..oooo..", ".oXXXXo.", "oXXXXXXx", "XXXXXxXx", ".XXxxxx.", "..xxxx.."),
+    "rock2": ("...oooo...", "..oXXXXo..", ".oXXXXXXo.", "oXXXXXXXXx", "XXXXXXxXxx", ".XXXxxxxx.", "..xxxxxx.."),
+}
+CORAL_COLORS = (("#ff9fb4", "#d9708a", "#ffd0dc"), ("#ffb27a", "#d9844a", "#ffd9b8"),
+                ("#c9a2ff", "#9a72d6", "#e7d6ff"), ("#ffe27a", "#d6b64a", "#fff2b8"))
+ROCK_COLORS = ("#8395a6", "#5f7182", "#aebdca")
+FISH_ART = {   # 右向き
+    "yellow": ({"X": "#ffe04a", "e": "#222222"}, (".XXX..", "XXeXXX", ".XXX.X")),
+    "blue": ({"X": "#3f7fff", "y": "#ffe04a", "e": "#111111"}, (".XXX..", "XXeXXy", ".XXX.y")),
+    "clown": ({"X": "#ff8a2a", "w": "#ffffff", "e": "#222222"}, (".XwX..", "XwewXX", ".XwX.X")),
+}
+VIS_ART = {
+    # イルカ(上から、右向き)
+    "dolphin": ({"X": "#86b4dc", "o": "#cfe6f7", "e": "#1c2530"},
+                (("......X.............", ".X...XXX............", "XXXXXXXXXXXXXXXXX...",
+                  "XXoooooooooooooeXXXX", "XXXXXXXXXXXXXXXXX...", ".X...XXX............",
+                  "......X............."),
+                 (".....................", "X....XXX............", ".XXXXXXXXXXXXXXXX...",
+                  "XXoooooooooooooeXXXX", ".XXXXXXXXXXXXXXXX...", "X....XXX............",
+                  "......X............."))),
+    # マンタ(上から、右向き)
+    "manta": ({"X": "#3b4a66", "o": "#5a6c8c", "w": "#e8eef6"},
+              (("....X..........", "...XXX.........", "..XXoXX........", ".XXooXXX.......",
+                "XXXXXXXXXXXXXw.", ".XXooXXX......w", "..XXoXX........", "...XXX.........",
+                "....X.........."),
+               (".....X.........", "....XXX........", "..XXoXX........", "XXXooXXX.......",
+                ".XXXXXXXXXXXXw.", "XXXooXXX......w", "..XXoXX........", "....XXX........",
+                ".....X........."))),
+    # ヤドカリ(横から、右向き)
+    "hermit": ({"X": "#f2a6c0", "x": "#c97a96", "r": "#e2503c", "e": "#222222"},
+               (("..XXX...", ".XxXXX..", "XXxXXXr.", "XXXXXrer", ".rrrrrr.", "r.r.r.r."),
+                ("..XXX...", ".XxXXX..", "XXxXXXr.", "XXXXXrer", ".rrrrrr.", ".r.r.r.r"))),
+    # ヤシガニ(上から)
+    "coconut": ({"X": "#5f5fb8", "x": "#3f3f8c", "o": "#8f8fe0", "e": "#ffffff"},
+                (("X.......X", ".X.eee.X.", "..XoooX..", "XXXxxxXXX", "..XxxxX..", ".X.XXX.X.",
+                  "X...X...X"),
+                 (".X.....X.", "X..eee..X", "..XoooX..", "XXXxxxXXX", "..XxxxX..", "X..XXX..X",
+                  ".X..X..X."))),
+}
+JELLY_ART = (".XXX.", "XXXXX", "X.X.X", "X.X.X")
+EGG_ART = (".XX.", "XXXX", "XXXX", ".XX.")
+STAR_ART = ("..X..", "..X..", "XXXXX", ".XXX.", "X...X")
 SHARK_ART = (
     ("...........F..........",
      "..........FF..........",
@@ -1549,12 +2222,10 @@ SHARK_ART = (
      "..........FF..........",
      "..........F..........."),
 )
-JELLY_ART = (".XXX.", "XXXXX", "X.X.X", "X.X.X")
-EGG_ART = (".XX.", "XXXX", "XXXX", ".XX.")
-STAR_ART = ("..X..", "..X..", "XXXXX", ".XXX.", "X...X")
 
-WATER_DEEP = (0x14, 0xb3, 0xc8)      # 沖(上)
-WATER_SHALLOW = (0x8c, 0xf0, 0xdf)   # 波打ち際
+WATER_DEEP = (0x14, 0xb3, 0xc8)
+WATER_SHALLOW = (0x8c, 0xf0, 0xdf)
+WATER_MID = "#3fc9d0"
 SAND_WET = "#e9cf8d"
 SAND_DRY = "#f8e9b8"
 
@@ -1572,20 +2243,56 @@ def hexcol(h, s, v):
     return "#%02x%02x%02x" % (int(r * 255), int(g * 255), int(b * 255))
 
 
+def pattern_on(style, x, y, bits):
+    """甲羅の内側 (x 3〜7, y 3〜8) で模様の色にするかどうか。左右対称。"""
+    mx = x if x <= 5 else 10 - x
+    ix, iy = mx - 2, y - 2                   # ix 1〜3, iy 1〜6
+    idx = iy * 4 + ix
+    bit = 0 <= idx < PATTERN_BITS and bits[idx]
+    if style == 0:                            # 無地(真ん中に小さな線)
+        return mx == 5 and iy in (2, 4)
+    if style == 1:                            # 水玉
+        return (ix + iy) % 3 == 0 and (bit or (ix + iy) % 2 == 0)
+    if style == 2:                            # しま
+        return iy % 2 == 0
+    if style == 3:                            # 亀甲(甲羅の板の線)
+        return iy % 3 == 0 or (ix == 1 and iy % 3 != 0) or mx == 5 and iy % 3 == 0
+    if style == 4:                            # リング
+        return (ix == 1 and 2 <= iy <= 5) or (iy in (2, 5) and ix >= 1) and not (mx == 5 and iy in (3, 4))
+    if style == 5:                            # まだら(遺伝子のビットそのまま)
+        return bit
+    if style == 6:                            # 市松
+        return (ix + iy) % 2 == 0
+    heart = {(4, 3), (6, 3), (3, 4), (4, 4), (5, 4), (6, 4), (7, 4), (4, 5), (5, 5), (6, 5), (5, 6)}
+    return (x, y) in heart                    # ハート(とてもまれ)
+
+
+def shell_colors(g):
+    h = pastel_hue(g["hue"])
+    h2 = pastel_hue(g["hue2"])
+    if is_dark(g):                            # まれに生まれる濃い色
+        return (hexcol(h, 0.62, 0.52), hexcol(h, 0.7, 0.34), hexcol(h2, 0.55, 0.85),
+                hexcol(h + 0.04, 0.3, 0.72))
+    return (hexcol(h, 0.30, 0.96), hexcol(h, 0.45, 0.72), hexcol(h2, 0.42, 0.84),
+            hexcol(h + 0.04, 0.14, 0.97))
+
+
 def turtle_pixels(g, frame, mode):
-    """mode: normal / belly(ひっくり返り)/ dead。上向き 11x11 の色の格子。"""
+    """mode: normal / belly / dead / breathe。上向きの色の格子(breathe は縦に長い)。"""
     base = FRAMES[frame]
-    shell = hexcol(g["hue"], 0.6, 0.55)
-    rim = hexcol(g["hue"], 0.65, 0.32)
-    pat = hexcol(g["hue2"], 0.65, 0.92)
-    skin = hexcol(g["hue"] + 0.08, 0.4, 0.62)
-    eye = "#101010"
+    shell, rim, pat, skin = shell_colors(g)
+    eye = "#3a3344"
     if mode == "belly":
-        shell, rim, pat = "#f2e6b0", "#a89860", "#d9c98e"
+        shell, rim, pat = "#fbf2d2", "#c9b98a", "#eadcae"
     if mode == "dead":
-        shell, rim, pat, skin, eye = "#9a9a9a", "#6a6a6a", "#8a8a8a", "#b0b0b0", "#505050"
+        shell, rim, pat, skin, eye = "#a8a8a8", "#787878", "#989898", "#c0c0c0", "#505050"
+    style = style_of(g)
     out = []
-    for y, row in enumerate(base):
+    rows = base
+    if mode == "breathe":
+        rows = BREATHE_HEAD + base[2:]
+    for y0, row in enumerate(rows):
+        y = y0 - (len(BREATHE_HEAD) - 2 if mode == "breathe" else 0)
         line = []
         for x, c in enumerate(row):
             if c == "S":
@@ -1595,22 +2302,30 @@ def turtle_pixels(g, frame, mode):
                 elif mode == "belly":
                     col = pat if (x + y) % 3 == 0 else shell
                 else:
-                    mx = x if x <= 5 else 10 - x          # 左右対称
-                    idx = (y - 2) * 4 + (mx - 2)
-                    bit = 0 <= idx < PATTERN_BITS and 2 <= mx <= 5 and g["pattern"][idx]
-                    col = pat if bit else shell
+                    col = pat if pattern_on(style, x, y, g["pattern"]) else shell
+                if mode == "breathe":
+                    col = mix_hex(col, WATER_MID, 0.45)       # 水の中の甲羅
                 line.append(col)
             elif c in "HFT":
-                line.append(skin)
+                col = skin
+                if mode == "breathe" and c == "F":
+                    col = mix_hex(col, WATER_MID, 0.45)
+                line.append(col)
             elif c == "E":
                 line.append(eye)
+            elif c == "W":
+                line.append("#ffffff")
             else:
                 line.append(None)
         out.append(line)
     return out
 
 
-# ---------------------------------------------------------------- 画面(tkinter)
+def mix_hex(c1, c2, f):
+    a, b = hex_rgb(c1), hex_rgb(c2)
+    return "#%02x%02x%02x" % tuple(int(x + (y - x) * f) for x, y in zip(a, b))
+
+
 def tint_rgb(rgb, k):
     return tuple(min(255, int(c * m)) for c, m in zip(rgb, k))
 
@@ -1623,22 +2338,24 @@ def tint_hex(col, k):
     return "#%02x%02x%02x" % tint_rgb(hex_rgb(col), k)
 
 
-def water_color(world, y, k=(1, 1, 1)):
-    """海の色(沖ほど濃く、波打ち際ほど明るい)に、時間帯の色みをかける。"""
-    f = min(1.0, max(0.0, y / max(1.0, world.land_top + 8)))
-    return tint_rgb(tuple(int(a + (b - a) * f) for a, b in zip(WATER_DEEP, WATER_SHALLOW)), k)
-
-
-GLITTER = {   # 水面のきらめき(太陽・月の反射)の色と数
-    "Daytime": ("#f4ffff", 6), "Sunrise": ("#ffe3a6", 14), "Sunset": ("#ffc46e", 16),
-    "Dusk": ("#e9c2ff", 10), "Dawn twilight": ("#d6e4ff", 8), "Night": ("#f2f6ff", 12),
-}
-
-
 def mix(c1, c2, f):
     return "#%02x%02x%02x" % tuple(int(a + (b - a) * f) for a, b in zip(c1, c2))
 
 
+def water_color(world, y, k=(1, 1, 1)):
+    f = min(1.0, max(0.0, y / max(1.0, world.land_top + 8)))
+    return tint_rgb(tuple(int(a + (b - a) * f) for a, b in zip(WATER_DEEP, WATER_SHALLOW)), k)
+
+
+def sparkle_amount(world):
+    """水面のきらめきの量(夏の真昼がいちばん多い)。"""
+    h = world.hour
+    if world.phase == "Daytime":
+        return 0.35 + 0.65 * max(0.0, math.sin(math.pi * (h - SUNRISE - 0.8) / (SUNSET - SUNRISE - 1.8)))
+    return {"Sunrise": 0.55, "Sunset": 0.7, "Dusk": 0.3, "Dawn twilight": 0.25, "Night": 0.35}.get(world.phase, 0.3)
+
+
+# ---------------------------------------------------------------- 画面(tkinter)
 class App:
     def __init__(self):
         import tkinter as tk
@@ -1653,6 +2370,7 @@ class App:
         self.canvas.pack(fill="both", expand=True)
         self.topmost = False
         self.show_lineage = False
+        self.show_rel = False
 
         world, away = load_world(self.save_dir)
         if world is None:
@@ -1668,20 +2386,25 @@ class App:
 
         c = self.canvas
         self.items = {}       # turtle.id -> [image, emote, lineage_text, cache, last_key]
-        self.tables = {"plant": {}, "jelly": {}, "egg": {}}
-        self.emote_img = {k: self._img(px, {"X": col}, 2) for k, (col, px) in EMOTES.items()}
-        self.jelly_img = self._img(JELLY_ART, {"X": "#ffc4ee"}, 2)   # クラゲは夜も光って見える
+        self.tables = {"plant": {}, "jelly": {}, "egg": {}, "fish": {}, "visitor": {}}
+        self.emote_img = {k: self._img(px, cols, 2) for k, (cols, px) in EMOTES.items()}
+        self.jelly_img = self._img(JELLY_ART, {"X": "#ffc4ee"}, 2)
         self.bg_tint = None
         self.make_tinted_images((1, 1, 1))
         self.shark_item = None
         self.bg_items = []
+        self.reef_items = []
         self.foam = c.create_line(0, 0, 1, 1, fill="#ffffff", width=2, tags="bg2")
-        self.waves = [self._new_wave(first=True) for _ in range(9)]
-        self.glitter = [c.create_line(0, 0, 1, 1, width=2, state="hidden", tags="wave")
-                        for _ in range(16)]
+        self.wave_items = [c.create_line(0, 0, 1, 1, fill="#ffffff", width=2, smooth=True,
+                                         capstyle="round", tags="wave") for _ in range(N_WAVES)]
+        self.big_items = [c.create_line(0, 0, 1, 1, fill="#ffffff", width=w, smooth=True, state="hidden",
+                                        capstyle="round", tags="wave") for w in (5, 2)]
+        self.glitter = [c.create_line(0, 0, 1, 1, width=2, state="hidden", tags="glit") for _ in range(30)]
+        self.rel_lines = []
         self.glit_t = 0.0
         self.light_t = 0.0
-        self.fx_items = []    # [item, kind, x, y, t, life]
+        self.rel_t = 0.0
+        self.fx_items = []
         self.hud = c.create_text(8, 6, anchor="nw", fill="#04505c", font=("", 9), tags="ui")
         self.graph_box = c.create_rectangle(0, 0, 1, 1, fill="#e9fbf8", outline="#6cc9c9", tags="ui")
         self.graph_title = c.create_text(0, 0, anchor="nw", text="Ecosystem (last 20 min)",
@@ -1693,10 +2416,9 @@ class App:
         self.log_items = [c.create_text(8, 0, anchor="sw", fill="#6b4a12", font=("", 9), tags="ui")
                           for _ in range(3)]
         self.help = c.create_text(0, 0, anchor="sw", fill="#9a7a3c", font=("", 8), tags="ui",
-                                  text="Click: status   Double-click: flip   Stroke: pet   "
-                                       "Click water: jellyfish   Shift+Click: seaweed   "
-                                       "Right-click: on top   L: lineage")
-        # 追いかけるステータス表示(カメをクリック)
+                                  text="Click: status  Dbl-click: flip  Stroke: pet  "
+                                       "Click water: jellyfish  Shift+Click: seaweed  "
+                                       "Right-click: on top  L: lineage  R: friends")
         self.follow = None
         self.panel_line = c.create_line(0, 0, 1, 1, fill="#0a6e78", state="hidden", tags="panel")
         self.panel_box = c.create_rectangle(0, 0, 1, 1, fill="#fffef6", outline="#0a6e78",
@@ -1705,7 +2427,6 @@ class App:
                                         state="hidden", tags="panel")
         self.panel_size = (0, 0)
         self.panel_t = 0.0
-        # マウスを重ねたときの説明(卵・クラゲ・水草・サメ)
         self.tip_box = c.create_rectangle(0, 0, 1, 1, fill="#fffef6", outline="#0a6e78",
                                           state="hidden", tags="tip")
         self.tip_text = c.create_text(0, 0, anchor="nw", fill="#073b42", font=("", 9),
@@ -1731,27 +2452,29 @@ class App:
         c.bind("<Shift-Button-1>", self.on_shift_click)
         c.bind("<Button-3>", self.toggle_topmost)
         c.bind("<Configure>", self.on_resize)
-        self.root.bind("<KeyPress-l>", self.toggle_lineage)
-        self.root.bind("<KeyPress-L>", self.toggle_lineage)
+        for k in ("l", "L"):
+            self.root.bind("<KeyPress-%s>" % k, self.toggle_lineage)
+        for k in ("r", "R"):
+            self.root.bind("<KeyPress-%s>" % k, self.toggle_rel)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.root.after(TICK_MS, self.tick)
 
     # ---- 画像
     def _img(self, rows, colors, scale, k=None):
-        img = self.tk.PhotoImage(width=len(rows[0]), height=len(rows))
+        img = self.tk.PhotoImage(width=max(len(r) for r in rows), height=len(rows))
         for y, r in enumerate(rows):
             for x, ch in enumerate(r):
                 if ch in colors:
                     img.put(tint_hex(colors[ch], k) if k else colors[ch], to=(x, y))
-        return img.zoom(scale)
+        return img.zoom(scale) if scale > 1 else img
 
     def make_tinted_images(self, bg):
         """時間帯の色みに合わせて画像を作り直す(色みが変わったときだけ)。"""
         self.bg_tint = bg
-        sp = tuple(0.45 + 0.55 * min(1.1, x) for x in bg)      # 生き物は背景より少し明るく
+        sp = tuple(0.45 + 0.55 * min(1.1, x) for x in bg)
         self.sprite_tint = sp
-        pc = {"g": "#1d8f55", "G": "#5ee08a"}
-        self.plant_img = [self._img(PLANT_ART[0], {"g": "#3d8a62"}, 2, sp)] + \
+        pc = {"g": "#2fa86a", "G": "#7be8a2"}
+        self.plant_img = [self._img(PLANT_ART[0], {"g": "#4e9a72"}, 2, sp)] + \
                          [self._img(a, pc, 2, sp) for a in PLANT_ART[1:]]
         self.egg_img = self._img(EGG_ART, {"X": "#fffdf2"}, 2, sp)
         self.star_img = self._img(STAR_ART, {"X": "#ff8a4c"}, 2, bg)
@@ -1760,6 +2483,24 @@ class App:
         for f, art in enumerate(SHARK_ART):
             self.shark_img[(1, f)] = self._img(art, sc, 3, sp)
             self.shark_img[(3, f)] = self._img(tuple(r[::-1] for r in art), sc, 3, sp)
+        self.fish_img = {}
+        for kind, (cols, art) in FISH_ART.items():
+            self.fish_img[(kind, 1)] = self._img(art, cols, 2, sp)
+            self.fish_img[(kind, 3)] = self._img(tuple(r[::-1] for r in art), cols, 2, sp)
+        self.vis_img = {}
+        for kind, (cols, frames) in VIS_ART.items():
+            for f, art in enumerate(frames):
+                sc2 = 3 if kind in ("dolphin", "manta") else 2
+                self.vis_img[(kind, 1, f)] = self._img(art, cols, sc2, sp)
+                self.vis_img[(kind, 3, f)] = self._img(tuple(r[::-1] for r in art), cols, sc2, sp)
+        self.reef_img = {}
+        for piece, art in REEF_ART.items():
+            for ci in range(4):
+                if piece.startswith("rock"):
+                    cols = dict(zip("Xxo", ROCK_COLORS))
+                else:
+                    cols = dict(zip("Xxo", CORAL_COLORS[ci]))
+                self.reef_img[(piece, ci)] = self._img(art, cols, 3, sp)
         for ent in getattr(self, "items", {}).values():
             ent[3].clear()
             ent[4] = None
@@ -1774,9 +2515,10 @@ class App:
             return
         self.make_tinted_images(q)
         self.draw_background()
+
         def lum(rgb):
             return (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255
-        sea_dark = lum(tint_rgb(WATER_DEEP, q)) < 0.48         # 文字の色を背景の明るさで切り替える
+        sea_dark = lum(tint_rgb(WATER_DEEP, q)) < 0.48
         sand_dark = lum(tint_rgb(hex_rgb(SAND_DRY), q)) < 0.6
         self.canvas.itemconfigure(self.hud, fill="#f2fbff" if sea_dark else "#04505c")
         for it in self.log_items:
@@ -1785,18 +2527,25 @@ class App:
         self.canvas.itemconfigure(self.foam, fill=tint_hex("#ffffff", q))
 
     def update_glitter(self):
-        """太陽・月が水面に映ってきらめく。朝夕は多く、夜は月明かり。"""
+        """太陽・月が水面に映ってきらめく。夏の真昼は海全体がキラキラ、朝夕は金色の光の道。"""
         c, w = self.canvas, self.world
-        col, n = GLITTER.get(w.phase, ("#ffffff", 6))
-        frac = (w.hour % 24) / 24.0
-        cx = w.w * (0.15 + 0.7 * ((frac * 2) % 1.0))           # 時刻で横に動く
+        amount = sparkle_amount(w)
+        n = int(len(self.glitter) * amount)
+        col = {"Daytime": "#fbffff", "Sunrise": "#ffe3a6", "Sunset": "#ffc46e", "Dusk": "#e9c2ff",
+               "Dawn twilight": "#d6e4ff", "Night": "#f2f6ff"}.get(w.phase, "#ffffff")
+        spread = w.phase == "Daytime"
+        cx = w.w * (0.15 + 0.7 * (((w.hour % 24) / 24.0 * 2) % 1.0))
         for i, it in enumerate(self.glitter):
-            if i >= n or random.random() < 0.25:
+            if i >= n or random.random() < 0.3:
                 c.itemconfigure(it, state="hidden")
                 continue
-            y = random.uniform(10, w.land_top * 0.8)
-            x = cx + random.gauss(0, 18 + y * 0.12)
-            ln = random.uniform(3, 10)
+            if spread:
+                x, y = random.uniform(0, w.w), random.uniform(6, w.land_top * 0.95)
+                ln = random.uniform(1.5, 5)
+            else:
+                y = random.uniform(10, w.land_top * 0.8)
+                x = cx + random.gauss(0, 18 + y * 0.12)
+                ln = random.uniform(3, 10)
             c.coords(it, x - ln, y, x + ln, y)
             c.itemconfigure(it, fill=col, state="normal")
 
@@ -1805,7 +2554,7 @@ class App:
         if img is None:
             d, frame, mode, scale = key
             px = rotate(turtle_pixels(t.g, frame, mode), d)
-            raw = self.tk.PhotoImage(width=11, height=11)
+            raw = self.tk.PhotoImage(width=len(px[0]), height=len(px))
             k = self.sprite_tint
             for y, row in enumerate(px):
                 for x, col in enumerate(row):
@@ -1815,12 +2564,12 @@ class App:
             cache[key] = img
         return img
 
-    # ---- 背景(海のグラデーション・砂浜・ヒトデ)
+    # ---- 背景(海・砂浜・ヒトデ・サンゴ・岩)
     def draw_background(self):
         c, w = self.canvas, self.world
-        for it in self.bg_items:
+        for it in self.bg_items + self.reef_items:
             c.delete(it)
-        self.bg_items = []
+        self.bg_items, self.reef_items = [], []
         bands = 10
         top = w.land_top + 8
         k = self.bg_tint
@@ -1838,17 +2587,26 @@ class App:
         for _ in range(2):
             x, y = w.beach_point(rnd.uniform(w.w * 0.55, w.w - 30))
             self.bg_items.append(c.create_image(x, min(y, w.h - 12), image=self.star_img, tags="bg"))
-        for _ in range(14):     # 砂の粒
+        for _ in range(14):
             x = rnd.uniform(0, w.w)
             y = rnd.uniform(w.shore(x) + 12, w.h - 2)
             self.bg_items.append(c.create_rectangle(x, y, x + 2, y + 2, fill=tint_hex("#e3c98a", k),
                                                     width=0, tags="bg"))
+        for r in w.reefs:
+            base = mix(water_color(w, r.y, k), (40, 60, 70), 0.18) if r.kind == "coral" else \
+                mix(water_color(w, r.y, k), (60, 70, 80), 0.12)
+            rr = r.radius
+            self.reef_items.append(c.create_oval(r.x - rr, r.y - rr * 0.7, r.x + rr, r.y + rr * 0.7,
+                                                 fill=base, outline="", tags="reef"))
+            for dx, dy, piece, ci in sorted(r.parts, key=lambda p: p[1]):
+                self.reef_items.append(c.create_image(round(r.x + dx), round(r.y + dy),
+                                                      image=self.reef_img[(piece, ci)], tags="reef"))
         self.order_dirty = True
         self.layout_ui()
 
     def layout_ui(self):
         c, w = self.canvas, self.world
-        gx1, gy0 = w.w - 8, 6
+        gx1, gy0 = w.w - 8, 50
         gx0, gy1 = gx1 - 214, gy0 + 72
         self.graph_rect = (gx0 + 4, gy0 + 16, gx1 - 4, gy1 - 18)
         c.coords(self.graph_box, gx0, gy0, gx1, gy1)
@@ -1862,54 +2620,46 @@ class App:
         c.coords(self.bann, w.w / 2, w.land_top / 2)
         self.draw_graph()
 
-    # ---- 波(沖から砂浜へ寄せてくる白い波頭)
-    def _new_wave(self, first=False):
-        it = self.canvas.create_line(0, 0, 1, 1, fill="#ffffff", width=2, smooth=True,
-                                     capstyle="round", tags="wave")
-        wv = {"item": it}
-        self._reset_wave(wv, first)
-        return wv
-
-    def _reset_wave(self, wv, first=False):
-        w = self.world
-        x = random.uniform(-20, w.w - 40)
-        y0 = random.uniform(8, w.land_top * 0.35)
-        wv.update(x=x, y0=y0, y=random.uniform(y0, w.land_top * 0.9) if first else y0,
-                  len=random.uniform(50, 120), amp=random.uniform(2, 5),
-                  sp=random.uniform(6, 12), ph=random.uniform(0, math.tau))
-
-    def update_waves(self, dt, recolor):
+    # ---- 波(World の波を描く)
+    def draw_waves(self, recolor):
         c, w = self.canvas, self.world
-        for wv in self.waves:
-            wv["y"] += wv["sp"] * dt
-            wv["x"] += math.sin(w.time * 0.3 + wv["ph"]) * 2 * dt
-            x0, y = wv["x"], wv["y"]
-            end = w.shore(x0 + wv["len"] / 2) - 6
-            if y > end:
-                self._reset_wave(wv)
-                continue
-            f = (y - wv["y0"]) / max(1.0, end - wv["y0"])
-            amp = wv["amp"] * (1 + 0.3 * math.sin(w.time * 1.5 + wv["ph"]))
-            pts = []
-            for k in range(7):
-                pts += [x0 + wv["len"] * k / 6, y - amp * math.sin(math.pi * k / 6)]
-            c.coords(wv["item"], *pts)
-            if recolor:     # 出てくる時と消える時は海の色に近づける(フェード)
+        k = self.bg_tint
+
+        def pts(wv, amp_mul=1.0, dy=0.0):
+            amp = wv.amp * amp_mul * (1 + 0.3 * math.sin(w.time * 1.5 + wv.ph))
+            n = 7 if not wv.big else 15
+            out = []
+            for i in range(n):
+                f = i / (n - 1)
+                out += [wv.x + wv.len * f, wv.y + dy - amp * math.sin(math.pi * f * (1 if not wv.big else 3))]
+            return out
+        for wv, it in zip(w.waves, self.wave_items):
+            c.coords(it, *pts(wv))
+            if recolor:
+                end = w.shore(wv.x + wv.len / 2) - 6
+                f = (wv.y - wv.y0) / max(1.0, end - wv.y0)
                 fade = math.sin(math.pi * min(1.0, max(0.0, f))) ** 0.7
-                k = self.bg_tint
-                c.itemconfigure(wv["item"], fill=mix(water_color(w, y, k), tint_rgb((255, 255, 255), k),
-                                                     0.75 * fade))
+                c.itemconfigure(it, fill=mix(water_color(w, wv.y, k), tint_rgb((255, 255, 255), k), 0.75 * fade))
+        bw = w.big_wave
+        if bw:
+            c.coords(self.big_items[0], *pts(bw))
+            c.coords(self.big_items[1], *pts(bw, 0.7, 7))
+            for it in self.big_items:
+                c.itemconfigure(it, state="normal", fill=tint_hex("#ffffff", k))
+        else:
+            for it in self.big_items:
+                c.itemconfigure(it, state="hidden")
 
     # ---- 演出(息継ぎの波紋・クラゲのしぶき・サメのひと噛み)
     def add_fx(self, kind, x, y):
         if len(self.fx_items) > 24:
             return
         col = {"ripple": "#ffffff", "splash": "#ffffff", "bite": "#ff3434"}.get(kind, "#ffffff")
-        n = 2 if kind in ("ripple", "bite") else 1
+        n = 3 if kind == "ripple" else 2 if kind == "bite" else 1
         for k in range(n):
-            it = self.canvas.create_oval(x, y, x, y, outline=col, width=2 if kind == "bite" else 1,
-                                         tags="fx")
-            self.fx_items.append([it, kind, x, y, -0.35 * k, 1.3 if kind != "splash" else 0.6])
+            it = self.canvas.create_oval(x, y, x, y, outline=col, width=2 if kind == "bite" else 1, tags="fx")
+            life = 1.8 if kind == "ripple" else 1.3 if kind == "bite" else 0.6
+            self.fx_items.append([it, kind, x, y, -0.45 * k, life])
         self.order_dirty = True
 
     def update_fx(self, dt):
@@ -1922,7 +2672,7 @@ class App:
                 c.delete(it)
                 continue
             if t >= 0:
-                r = 3 + t / life * (22 if kind != "splash" else 10)
+                r = 2 + t / life * ({"splash": 10, "ripple": 16}.get(kind, 22))
                 c.coords(it, x - r, y - r * 0.8, x + r, y + r * 0.8)
             keep.append(f)
         self.fx_items = keep
@@ -1939,7 +2689,7 @@ class App:
         self.world.cursor = (e.x, e.y)
         self.mouse = (e.x, e.y)
         self.tip_t = 0.0
-        if 0 < dist < 80:                     # カメの上でカーソルを動かす = なでる
+        if 0 < dist < 80:
             t = self.world.hit(e.x, e.y, pad=0)
             if t:
                 self.world.pet(t, dist)
@@ -1952,10 +2702,9 @@ class App:
         self.canvas.itemconfigure(self.bann, state="normal")
 
     def on_click(self, e):
-        # ダブルクリックと区別するため、少し待ってから処理する
         if self.click_job:
             self.root.after_cancel(self.click_job)
-        t = self.world.hit(e.x, e.y, pad=6)        # 押した瞬間のカメで判定する
+        t = self.world.hit(e.x, e.y, pad=6)
         self.click_job = self.root.after(280, lambda: self.on_single(t, e.x, e.y))
 
     def on_single(self, t, x, y):
@@ -1992,6 +2741,13 @@ class App:
     def toggle_lineage(self, e=None):
         self.show_lineage = not self.show_lineage
 
+    def toggle_rel(self, e=None):
+        self.show_rel = not self.show_rel
+        if not self.show_rel:
+            for it in self.rel_lines:
+                self.canvas.delete(it)
+            self.rel_lines = []
+
     def on_resize(self, e):
         if (e.width, e.height) == (int(self.world.w), int(self.world.h)):
             return
@@ -2000,8 +2756,6 @@ class App:
             for ent in tab.values():
                 self.canvas.delete(ent[0])
             tab.clear()
-        for wv in self.waves:
-            self._reset_wave(wv, first=True)
         self.draw_background()
 
     def on_close(self):
@@ -2024,18 +2778,37 @@ class App:
                 pass
         self.world.step(dt)
         self.world.cursor_speed *= 0.5
-        if self.root.state() == "iconic":        # 最小化中は描画しない
+        if self.root.state() == "iconic":
             self.world.fx.clear()
             self.root.after(1000, self.tick)
             return
         self.render(dt)
         self.root.after(TICK_MS, self.tick)
 
+    def turtle_key(self, t):
+        w = self.world
+        if t.state == "dead":
+            return (2, 0, "dead", t.scale)
+        if t.state == "flipped":
+            return (t.dir, int(t.anim / 0.12) % 2, "belly", t.scale)
+        if t.state == "breathe":
+            return (t.dir, 0, "breathe", t.scale)
+        if t.state in ("sleep", "lay", "petted", "cleaning"):
+            return (t.dir, 0, "normal", t.scale)
+        if t.state == "surf":
+            return (t.dir, 1, "normal", t.scale)
+        water = w.in_water(t.x, t.y)
+        period = 0.2 if t.state in ("flee", "food", "flee_shark", "play") else (0.6 if not water else 0.45)
+        return (t.dir, int(t.anim / period) % 2, "normal", t.scale)
+
     def render(self, dt):
         c, w = self.canvas, self.world
         self._sync("plant", w.plants, lambda p: self.plant_img[p.stage], move=False)
         self._sync("egg", w.eggs, lambda e: self.egg_img, move=False)
         self._sync("jelly", w.jellies, lambda o: self.jelly_img)
+        self._sync("fish", w.fish, lambda f: self.fish_img[(f.school.kind, 1 if f.vx >= 0 else 3)])
+        self._sync("visitor", w.visitors,
+                   lambda v: self.vis_img[(v.kind, v.dir, int(v.anim / (0.25 if v.kind == "dolphin" else 0.5)) % 2)])
 
         seen = set()
         for t in w.turtles:
@@ -2045,18 +2818,7 @@ class App:
                 ent = [c.create_image(t.x, t.y, tags="turtle"), None, None, {}, None]
                 self.items[t.id] = ent
                 self.order_dirty = True
-            if t.state == "dead":
-                key = (2, 0, "dead", t.scale)
-            elif t.state == "flipped":
-                key = (t.dir, int(t.anim / 0.12) % 2, "belly", t.scale)
-            elif t.state in ("sleep", "lay", "petted"):
-                key = (t.dir, 0, "normal", t.scale)
-            elif t.state == "breathe":
-                key = (t.dir, int(t.anim / 0.8) % 2, "normal", t.scale)
-            else:
-                water = w.in_water(t.x, t.y)
-                period = 0.2 if t.state in ("flee", "food", "flee_shark") else (0.6 if not water else 0.45)
-                key = (t.dir, int(t.anim / period) % 2, "normal", t.scale)
+            key = self.turtle_key(t)
             if key != ent[4]:
                 c.itemconfigure(ent[0], image=self.turtle_img(t, ent[3], key))
                 ent[4] = key
@@ -2111,7 +2873,7 @@ class App:
         recolor = self.wave_t > 0.3
         if recolor:
             self.wave_t = 0.0
-        self.update_waves(dt, recolor)
+        self.draw_waves(recolor)
         self.glit_t += dt
         if self.glit_t > 0.3:
             self.glit_t = 0.0
@@ -2130,10 +2892,12 @@ class App:
             pts = [v for x in xs for v in (x, w.shore(x) - 1.5 - 1.5 * math.sin(ph + x / 45.0))]
             c.coords(self.foam, *pts)
             self.foam_t = 0.0
+        if self.show_rel:
+            self.draw_relations(dt)
 
-        if self.order_dirty:     # 重なり順
-            for tag in ("bg", "wave", "bg2", "plant", "egg", "jelly", "turtle", "shark", "fx",
-                        "ui", "panel", "tip"):
+        if self.order_dirty:
+            for tag in ("bg", "glit", "plant", "reef", "wave", "bg2", "egg", "fish", "jelly",
+                        "rel", "turtle", "visitor", "shark", "fx", "ui", "panel", "tip"):
                 c.tag_raise(tag)
             self.order_dirty = False
 
@@ -2143,12 +2907,17 @@ class App:
             alive = w.alive()
             nf = sum(t.sex == "F" for t in alive)
             herb = sum(t.herbivore for t in alive)
+            vis = [{"dolphin": "Dolphin", "manta": "Manta", "hermit": "Hermit crab",
+                    "coconut": "Coconut crab"}[v.kind] for v in w.visitors]
+            if w.shark:
+                vis.append("SHARK!")
             c.itemconfigure(self.hud, text=(
                 "%s %s   Turtles %d (F%d M%d, herb %d / omni %d)   Eggs %d   Gen %d\n"
-                "Seaweed %d   Jellyfish %d   Born %d   Died %d   Merged %d   Split %d%s"
-                % (time.strftime("%H:%M", time.localtime(w.now_ts)), w.phase, len(alive), nf, len(alive) - nf, herb, len(alive) - herb, len(w.eggs), w.max_gen,
+                "Seaweed %d   Jellyfish %d   Born %d   Died %d   Merged %d   Split %d\n%s"
+                % (time.strftime("%H:%M", time.localtime(w.now_ts)), w.phase, len(alive), nf,
+                   len(alive) - nf, herb, len(alive) - herb, len(w.eggs), w.max_gen,
                    len(w.plants), len(w.jellies), w.births, w.deaths, w.merges, w.splits,
-                   "   SHARK!" if w.shark else "")))
+                   ("Visitors: " + ", ".join(vis)) if vis else "")))
             for i, it in enumerate(self.log_items):
                 k = len(w.events) - len(self.log_items) + i
                 c.itemconfigure(it, text=("%s  %s" % (w.events[k][0], w.events[k][2])) if k >= 0 else "")
@@ -2165,13 +2934,37 @@ class App:
             if self.banner_t <= 0:
                 self.banner = None
 
+    def draw_relations(self, dt):
+        """パートナー(ピンク)と友達(黄色)を線で結ぶ。"""
+        c, w = self.canvas, self.world
+        pairs = []
+        done = set()
+        for t in w.alive():
+            for other, col in ((w.by_id.get(t.partner), "#ff7aa8"), ):
+                if other and (other.id, t.id) not in done:
+                    pairs.append((t, other, col, 2))
+                    done.add((t.id, other.id))
+            for f in w.friends(t)[:3]:
+                if (f.id, t.id) not in done and (t.id, f.id) not in done:
+                    pairs.append((t, f, "#fff08a", 1))
+                    done.add((t.id, f.id))
+        while len(self.rel_lines) < len(pairs):
+            self.rel_lines.append(c.create_line(0, 0, 1, 1, dash=(3, 3), tags="rel"))
+            self.order_dirty = True
+        for i, it in enumerate(self.rel_lines):
+            if i < len(pairs):
+                a, b, col, wd = pairs[i]
+                c.coords(it, a.x, a.y, b.x, b.y)
+                c.itemconfigure(it, fill=col, width=wd, state="normal")
+            else:
+                c.itemconfigure(it, state="hidden")
+
     def update_panel(self, dt):
-        """クリックしたカメのステータスを、カメについて回るように表示する。"""
         if self.follow is None:
             return
         c, w = self.canvas, self.world
         t = next((x for x in w.turtles if x.id == self.follow), None)
-        if t is None:            # 死骸が消えた(または合体・分裂した)
+        if t is None:
             self.follow = None
             c.itemconfigure("panel", state="hidden")
             return
@@ -2252,6 +3045,7 @@ class App:
     def run(self):
         self.root.mainloop()
 
+
 def main():
     try:
         App().run()
@@ -2259,7 +3053,7 @@ def main():
         import traceback
         msg = traceback.format_exc()
         print(msg, file=sys.stderr)
-        try:   # ダブルクリック起動ではコンソールがすぐ閉じるので画面に出す
+        try:
             import tkinter.messagebox as mb
             mb.showerror("Sea Turtle Colony", msg)
         except Exception:
