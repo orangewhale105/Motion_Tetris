@@ -28,6 +28,7 @@ Sea Turtle Colony(ウミガメ群体)— デスクトップで動く人工生命
     水をクリック → クラゲを落とす   Shift+クリック → 水草を植える
     右クリック → 最前面に固定の切り替え   L キー → 系統の文字   R キー → 友達・パートナーの線
 ・音: 波の音と効果音(標準ライブラリで合成)。砂浜右下のボタンか W / F キーで、それぞれ ON/OFF。
+  音量はボタンの左右の −/+ かマウスホイールで、それぞれ 0〜100%。
 ・閉じると群体を Google ドライブ(パソコン版 Google ドライブの同期フォルダ)に保存。
   次に起動すると、閉じていた実時間ぶん(最大7日)群体と生態系の時間を進める。
 
@@ -48,7 +49,7 @@ import string
 import sys
 import time
 
-VERSION = "4.2.0"
+VERSION = "4.3.0"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
@@ -634,7 +635,7 @@ class World:
         self.fx = []              # 描画側への演出 (種類, x, y)
         self.sfx = []             # 描画側への効果音の名前
         self.n_events = 0
-        self.settings = {"waves": True, "fx": True}
+        self.settings = {"waves": True, "fx": True, "waves_vol": 6, "fx_vol": 7}
         self.time = 0.0
         self.jelly_t = 0.0
         self.births = self.deaths = self.laid = self.merges = self.splits = 0
@@ -2549,6 +2550,36 @@ def build_sound_files(folder=None):
     return paths
 
 
+def scaled_wav(path, level):
+    """音量 level(0〜10)に下げた WAV を作って、そのパスを返す(作ってあれば作らない)。
+    winmm や afplay は音量を変えられないので、音量ごとのファイルで鳴らす。"""
+    if level >= 10:
+        return path
+    out = path[:-4] + "_v%d.wav" % level
+    if not os.path.exists(out):
+        import array
+        import wave
+        with wave.open(path) as f:
+            params = f.getparams()
+            data = array.array("h", f.readframes(f.getnframes()))
+        if sys.byteorder == "big":
+            data.byteswap()
+        k = (level / 10.0) ** 1.6                 # 耳に自然な変化(小さい音量を細かく)
+        data = array.array("h", (int(v * k) for v in data))
+        if sys.byteorder == "big":
+            data.byteswap()
+        tmp = out + ".tmp"
+        with wave.open(tmp, "wb") as f:
+            f.setparams(params)
+            f.writeframes(data.tobytes())
+        os.replace(tmp, out)
+    return out
+
+
+def vol_gain(level):
+    return (max(0, min(10, level)) / 10.0) ** 1.6
+
+
 class _PygameBackend:
     name = "pygame"
 
@@ -2560,13 +2591,18 @@ class _PygameBackend:
         self.snd = {n: pygame.mixer.Sound(p) for n, p in paths.items()}
         self.wave_ch = None
 
-    def play(self, name):
-        self.snd[name].play()
+    def play(self, name, level):
+        ch = self.snd[name].play()
+        if ch is not None:
+            ch.set_volume(vol_gain(level))
 
-    def waves(self, on):
-        if on and self.wave_ch is None:
-            self.wave_ch = self.snd["waves"].play(loops=-1)
-        elif not on and self.wave_ch is not None:
+    def waves(self, on, level):
+        if on and level > 0:
+            if self.wave_ch is None:
+                self.wave_ch = self.snd["waves"].play(loops=-1)
+            if self.wave_ch is not None:
+                self.wave_ch.set_volume(vol_gain(level))
+        elif self.wave_ch is not None:
             self.wave_ch.stop()
             self.wave_ch = None
 
@@ -2586,11 +2622,11 @@ class _MciBackend:
         self.mci = ctypes.windll.winmm.mciSendStringW
         self.buf = ctypes.create_unicode_buffer(64)
         self.paths = paths
-        self.live = []          # (alias, 閉じる時刻)
+        self.live = []
         self.n = 0
         self.wave_on = False
+        self.wave_open = None
         self.lengths = {n: self._length(p) for n, p in paths.items()}
-        self._cmd('open "%s" type waveaudio alias umiwaves' % paths["waves"])
 
     def _cmd(self, s):
         return self.mci(s, self.buf, 64, 0)
@@ -2604,18 +2640,25 @@ class _MciBackend:
         except Exception:
             return 2.0
 
-    def play(self, name):
-        if len(self.live) >= 8:
+    def play(self, name, level):
+        if len(self.live) >= 8 or level <= 0:
             return
         self.n += 1
         alias = "umifx%d" % self.n
-        if self._cmd('open "%s" type waveaudio alias %s' % (self.paths[name], alias)) == 0:
+        path = scaled_wav(self.paths[name], level)
+        if self._cmd('open "%s" type waveaudio alias %s' % (path, alias)) == 0:
             self._cmd("play %s" % alias)
             self.live.append((alias, time.monotonic() + self.lengths[name] + 0.5))
 
-    def waves(self, on):
-        self.wave_on = on
-        self._cmd("play umiwaves from 0" if on else "stop umiwaves")
+    def waves(self, on, level):
+        self.wave_on = on and level > 0
+        if self.wave_open is not None:
+            self._cmd("close umiwaves")
+            self.wave_open = None
+        if self.wave_on:
+            self._cmd('open "%s" type waveaudio alias umiwaves' % scaled_wav(self.paths["waves"], level))
+            self.wave_open = level
+            self._cmd("play umiwaves from 0")
 
     def tick(self):
         now = time.monotonic()
@@ -2626,7 +2669,7 @@ class _MciBackend:
             else:
                 keep.append((alias, end))
         self.live = keep
-        if self.wave_on:                       # 終わったら最初から(ループ)
+        if self.wave_on:
             self._cmd("status umiwaves mode")
             if self.buf.value == "stopped":
                 self._cmd("play umiwaves from 0")
@@ -2645,26 +2688,27 @@ class _ProcessBackend:
         self.paths, self.player = paths, player
         self.wave_proc = None
         self.wave_on = False
+        self.wave_level = 10
         self.procs = []
 
     def _run(self, path):
         return self.sp.Popen([self.player, path], stdout=self.sp.DEVNULL, stderr=self.sp.DEVNULL)
 
-    def play(self, name):
+    def play(self, name, level):
         self.procs = [p for p in self.procs if p.poll() is None]
-        if len(self.procs) < 6:
-            self.procs.append(self._run(self.paths[name]))
+        if len(self.procs) < 6 and level > 0:
+            self.procs.append(self._run(scaled_wav(self.paths[name], level)))
 
-    def waves(self, on):
-        self.wave_on = on
-        if not on and self.wave_proc and self.wave_proc.poll() is None:
+    def waves(self, on, level):
+        self.wave_on, self.wave_level = on and level > 0, level
+        if self.wave_proc and self.wave_proc.poll() is None:
             self.wave_proc.terminate()
         self.wave_proc = None
         self.tick()
 
     def tick(self):
         if self.wave_on and (self.wave_proc is None or self.wave_proc.poll() is not None):
-            self.wave_proc = self._run(self.paths["waves"])
+            self.wave_proc = self._run(scaled_wav(self.paths["waves"], self.wave_level))
 
     def close(self):
         for p in self.procs + ([self.wave_proc] if self.wave_proc else []):
@@ -2674,13 +2718,15 @@ class _ProcessBackend:
 
 class SoundSystem:
     """波の音(ループ)と効果音。使える方法を順に試す: pygame → Windows の winmm → afplay/aplay → 無音。
-    音のファイルは最初に一度だけ合成して一時フォルダに置く(別スレッドで作るので起動は遅くならない)。"""
+    音のファイルは最初に一度だけ合成して一時フォルダに置く(別スレッドで作るので起動は遅くならない)。
+    音量は波の音・効果音それぞれ 0〜10(10段階)。"""
 
     MIN_GAP = {"note": 0.6, "heart": 0.6, "breath": 2.0, "munch": 0.8, "anger": 0.8, "surprise": 0.5,
                "splash": 0.2, "sparkle": 0.6, "whoosh": 1.0, "bell": 2.0}
 
-    def __init__(self, waves_on=True, fx_on=True, backend=None):
+    def __init__(self, waves_on=True, fx_on=True, backend=None, waves_vol=6, fx_vol=7):
         self.waves_on, self.fx_on = waves_on, fx_on
+        self.waves_vol, self.fx_vol = waves_vol, fx_vol
         self.backend = backend
         self.status = "loading"
         self.last = {}
@@ -2690,7 +2736,7 @@ class SoundSystem:
             threading.Thread(target=self._load, daemon=True).start()
         else:
             self.status = "ready"
-            self.backend.waves(self.waves_on)
+            self.backend.waves(self.waves_on, self.waves_vol)
 
     def _load(self):
         try:
@@ -2702,7 +2748,6 @@ class SoundSystem:
         self.status = "files"
 
     def _start_backend(self):
-        """tkinter と同じスレッドで再生の準備をする。"""
         paths = self._paths
         for make in (lambda: _PygameBackend(paths),
                      (lambda: _MciBackend(paths)) if sys.platform.startswith("win") else None,
@@ -2720,7 +2765,7 @@ class SoundSystem:
             self.status = "off (no audio player)"
             return
         self.status = "ready"
-        self.backend.waves(self.waves_on)
+        self._safe(self.backend.waves, self.waves_on, self.waves_vol)
 
     def _process_backend(self):
         import shutil
@@ -2729,48 +2774,47 @@ class SoundSystem:
                 return _ProcessBackend(self._paths, player)
         return None
 
+    @staticmethod
+    def _safe(fn, *args):
+        try:
+            fn(*args)
+        except Exception:
+            pass
+
     def tick(self):
         if self.status == "files":
             self._start_backend()
         if self.backend is not None:
-            try:
-                self.backend.tick()
-            except Exception:
-                pass
+            self._safe(self.backend.tick)
 
     def play(self, name):
-        if not self.fx_on or self.backend is None:
+        if not self.fx_on or self.fx_vol <= 0 or self.backend is None:
             return
         now = time.monotonic()
         if now - self.last.get(name, -99) < self.MIN_GAP.get(name, 0.3):
             return
         self.recent = [t for t in self.recent if now - t < 1.0]
-        if len(self.recent) >= 4:              # 1秒に4つまで(うるさくしない)
+        if len(self.recent) >= 4:
             return
         self.last[name] = now
         self.recent.append(now)
-        try:
-            self.backend.play(name)
-        except Exception:
-            pass
+        self._safe(self.backend.play, name, self.fx_vol)
 
-    def set_waves(self, on):
+    def set_waves(self, on, vol=None):
         self.waves_on = on
+        if vol is not None:
+            self.waves_vol = max(0, min(10, vol))
         if self.backend is not None:
-            try:
-                self.backend.waves(on)
-            except Exception:
-                pass
+            self._safe(self.backend.waves, self.waves_on, self.waves_vol)
 
-    def set_fx(self, on):
+    def set_fx(self, on, vol=None):
         self.fx_on = on
+        if vol is not None:
+            self.fx_vol = max(0, min(10, vol))
 
     def close(self):
         if self.backend is not None:
-            try:
-                self.backend.close()
-            except Exception:
-                pass
+            self._safe(self.backend.close)
 
 
 # 出来事・表情 → 効果音
@@ -2857,11 +2901,20 @@ class App:
                                        "Shift+Click: seaweed  Right-click: on top  L: lineage  R: friends")
         # 音(波の音・効果音)と ON/OFF ボタン
         st = self.world.settings
-        self.sound = SoundSystem(st.get("waves", True), st.get("fx", True))
-        self.btn_waves = c.create_text(0, 0, anchor="se", font=("", 9, "bold"), tags=("ui", "btn"))
-        self.btn_fx = c.create_text(0, 0, anchor="se", font=("", 9, "bold"), tags=("ui", "btn"))
-        c.tag_bind(self.btn_waves, "<Button-1>", lambda e: self.toggle_waves())
-        c.tag_bind(self.btn_fx, "<Button-1>", lambda e: self.toggle_fx())
+        self.sound = SoundSystem(st["waves"], st["fx"], waves_vol=st["waves_vol"], fx_vol=st["fx_vol"])
+        self.sound_ui = {}       # "waves"/"fx" → (−, 名前, ＋) の文字
+        for key in ("waves", "fx"):
+            items = tuple(c.create_text(0, 0, anchor="se", font=("", 9, "bold"), tags=("ui", "btn"))
+                          for _ in range(3))
+            self.sound_ui[key] = items
+            minus, label, plus = items
+            c.tag_bind(label, "<Button-1>", lambda e, k=key: self.toggle_sound(k))
+            c.tag_bind(minus, "<Button-1>", lambda e, k=key: self.change_volume(k, -1))
+            c.tag_bind(plus, "<Button-1>", lambda e, k=key: self.change_volume(k, +1))
+        # ボタンの上でマウスホイール → 音量
+        c.bind("<MouseWheel>", lambda e: self.on_wheel(e, 1 if e.delta > 0 else -1))
+        c.bind("<Button-4>", lambda e: self.on_wheel(e, +1))
+        c.bind("<Button-5>", lambda e: self.on_wheel(e, -1))
         self.update_buttons()
         self.last_event_n = self.world.n_events
         self.follow = None
@@ -2902,9 +2955,9 @@ class App:
         for k in ("r", "R"):
             self.root.bind("<KeyPress-%s>" % k, self.toggle_rel)
         for k in ("w", "W"):
-            self.root.bind("<KeyPress-%s>" % k, lambda e: self.toggle_waves())
+            self.root.bind("<KeyPress-%s>" % k, lambda e: self.toggle_sound("waves"))
         for k in ("f", "F"):
-            self.root.bind("<KeyPress-%s>" % k, lambda e: self.toggle_fx())
+            self.root.bind("<KeyPress-%s>" % k, lambda e: self.toggle_sound("fx"))
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.root.after(TICK_MS, self.tick)
 
@@ -3071,9 +3124,8 @@ class App:
         for i, it in enumerate(self.log_items):
             c.coords(it, 8, w.h - 16 - (n - 1 - i) * 14)
         c.coords(self.help, 8, w.h - 2)
-        if hasattr(self, "btn_fx"):
-            c.coords(self.btn_fx, w.w - 8, w.h - 16)
-            c.coords(self.btn_waves, w.w - 128, w.h - 16)
+        if hasattr(self, "sound_ui"):
+            self.update_buttons()
         c.coords(self.bann, w.w / 2, w.land_top / 2)
         self.draw_graph()
 
@@ -3216,33 +3268,53 @@ class App:
         self.draw_background()
 
     def update_buttons(self):
-        st = self.world.settings
-        c = self.canvas
-        c.itemconfigure(self.btn_waves, text="Waves (W): %s" % ("ON" if st["waves"] else "OFF"),
-                        fill="#0a7f8c" if st["waves"] else "#a08a6a")
-        c.itemconfigure(self.btn_fx, text="Sound FX (F): %s" % ("ON" if st["fx"] else "OFF"),
-                        fill="#0a7f8c" if st["fx"] else "#a08a6a")
-        w = self.world
-        c.coords(self.btn_fx, w.w - 8, w.h - 16)
-        c.coords(self.btn_waves, w.w - 128, w.h - 16)
+        """砂浜の右下: [− Waves (W) 60% +]  [− Sound FX (F) 70% +]"""
+        st, c, w = self.world.settings, self.canvas, self.world
+        x = w.w - 8
+        for key, name in (("fx", "Sound FX (F)"), ("waves", "Waves (W)")):
+            minus, label, plus = self.sound_ui[key]
+            on, vol = st[key], st[key + "_vol"]
+            col = "#0a7f8c" if on and vol > 0 else "#a08a6a"
+            c.itemconfigure(plus, text=" + ", fill=col)
+            c.itemconfigure(label, text="%s %s" % (name, ("%d%%" % (vol * 10)) if on else "OFF"), fill=col)
+            c.itemconfigure(minus, text=" − ", fill=col)
+            for it in (plus, label, minus):
+                c.coords(it, x, w.h - 16)
+                bb = c.bbox(it)
+                x -= (bb[2] - bb[0]) if bb else 30
+            x -= 14
 
-    def toggle_waves(self):
-        st = self.world.settings
-        st["waves"] = not st["waves"]
-        self.sound.set_waves(st["waves"])
-        self.update_buttons()
-        self.banner, self.banner_t = "Wave sound: %s" % ("ON" if st["waves"] else "OFF"), 1.5
-        self._button_click = time.monotonic()
+    def on_wheel(self, e, step):
+        near = set(self.canvas.find_overlapping(e.x - 3, e.y - 3, e.x + 3, e.y + 3))
+        for key, items in self.sound_ui.items():
+            if near & set(items):
+                self.change_volume(key, step)
 
-    def toggle_fx(self):
+    def toggle_sound(self, key):
         st = self.world.settings
-        st["fx"] = not st["fx"]
-        self.sound.set_fx(st["fx"])
+        st[key] = not st[key]
+        self.apply_sound(key)
+        label = "Wave sound" if key == "waves" else "Sound effects"
+        self.banner, self.banner_t = "%s: %s" % (label, "ON" if st[key] else "OFF"), 1.5
+
+    def change_volume(self, key, step):
+        st = self.world.settings
+        st[key + "_vol"] = max(0, min(10, st[key + "_vol"] + step))
+        st[key] = True
+        self.apply_sound(key)
+        label = "Wave sound" if key == "waves" else "Sound effects"
+        self.banner, self.banner_t = "%s volume: %d%%" % (label, st[key + "_vol"] * 10), 1.2
+
+    def apply_sound(self, key):
+        st = self.world.settings
+        if key == "waves":
+            self.sound.set_waves(st["waves"], st["waves_vol"])
+        else:
+            self.sound.set_fx(st["fx"], st["fx_vol"])
+            if st["fx"]:
+                self.sound.last.pop("note", None)
+                self.sound.play("note")                  # 試し聞き
         self.update_buttons()
-        self.banner, self.banner_t = "Sound effects: %s" % ("ON" if st["fx"] else "OFF"), 1.5
-        self._button_click = time.monotonic()
-        if st["fx"]:
-            self.sound.play("note")
 
     def play_sounds(self):
         """世界で起きたこと(出来事・演出・表情)を効果音にする。"""

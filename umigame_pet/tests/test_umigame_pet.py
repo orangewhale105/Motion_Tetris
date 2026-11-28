@@ -361,11 +361,13 @@ class FakeBackend:
     def __init__(self):
         self.played, self.wave_state = [], None
 
-    def play(self, name):
+    def play(self, name, level):
         self.played.append(name)
+        self.level = level
 
-    def waves(self, on):
+    def waves(self, on, level):
         self.wave_state = on
+        self.wave_level = level
 
     def tick(self):
         pass
@@ -406,6 +408,33 @@ class TestSound(unittest.TestCase):
         self.assertEqual(fb.played, [])
         snd.set_waves(False)
         self.assertFalse(fb.wave_state)
+        snd.set_waves(True, 3)
+        self.assertEqual(fb.wave_level, 3)
+        snd.set_fx(True, 4)
+        snd.last.clear()
+        snd.recent.clear()
+        snd.play("splash")
+        self.assertEqual(fb.level, 4)
+        snd.set_fx(True, 0)                          # 音量 0 なら鳴らさない
+        fb.played.clear()
+        snd.last.clear()
+        snd.play("note")
+        self.assertEqual(fb.played, [])
+
+    def test_scaled_wav(self):
+        import array
+        import wave
+        with tempfile.TemporaryDirectory() as d:
+            p = up.build_sound_files(d)["splash"]
+            q = up.scaled_wav(p, 5)
+            self.assertNotEqual(p, q)
+            self.assertEqual(up.scaled_wav(p, 10), p)
+
+            def peak(path):
+                with wave.open(path) as f:
+                    return max(abs(v) for v in array.array("h", f.readframes(f.getnframes())))
+            self.assertLess(peak(q), peak(p) * 0.5)
+            self.assertEqual(peak(up.scaled_wav(p, 0)), 0)
 
     def test_event_mapping_and_world_sfx(self):
         self.assertEqual(up.event_sound("shark", "A shark appeared offshore! Big turtles, watch out"), "shark")
@@ -426,11 +455,14 @@ class TestSound(unittest.TestCase):
         w = up.World()
         w.seed()
         w.settings["waves"] = False
+        w.settings["fx_vol"] = 3
         with tempfile.TemporaryDirectory() as d:
             up.save_world(w, d)
             w2, _ = up.load_world(d)
         self.assertFalse(w2.settings["waves"])
         self.assertTrue(w2.settings["fx"])
+        self.assertEqual(w2.settings["fx_vol"], 3)
+        self.assertEqual(w2.settings["waves_vol"], 6)
 
 
 if __name__ == "__main__":
