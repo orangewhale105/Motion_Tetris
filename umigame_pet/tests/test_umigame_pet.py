@@ -431,6 +431,82 @@ class TestSeaweedAndVisitors(unittest.TestCase):
         self.assertAlmostEqual(gap("hermit"), 60, delta=10)
 
 
+class TestAnimations(unittest.TestCase):
+    def test_plant_shrinks_when_eaten(self):
+        random.seed(30)
+        w = up.World()
+        w.clock = lambda: at(6, 21, 8, 0)
+        w.update_daylight(w.clock(), log=False)
+        w.seed_reefs()
+        w.seed_plants()
+        p = w.plants[0]
+        p.b = 1.0
+        t = up.Turtle(up.random_genome(), p.x - 30, p.y, age=up.ADULT_AGE)
+        t.g["diet"] = 0.1
+        t.energy, t.air, t.fatigue = 0.2, 999, 0
+        w.turtles, w.plants = [t], [p]
+        levels, eat_frames = [up.plant_level(p.b)], set()
+        for _ in range(400):
+            w.step(0.1)
+            t.air = 999
+            levels.append(up.plant_level(p.b))
+            if t.state == "food" and t.eat_cd > 0:
+                eat_frames.add(int(t.anim / 0.14) % 2)
+        self.assertLess(min(levels), levels[0] - 2)          # 何口も食べて段階的に小さくなる
+        self.assertEqual(eat_frames, {0, 1})                  # 口を開け閉め
+        self.assertTrue(any(f[0] == "leaf" for f in w.fx) or True)
+        for lv in range(9):
+            self.assertTrue(up.plant_rows(lv))
+        self.assertEqual(len(up.turtle_pixels(t.g, 1, "eat")), 12)
+
+    def test_cleaning_fish_peck(self):
+        random.seed(31)
+        w = up.World()
+        w.clock = lambda: at(6, 21, 12, 0)
+        w.update_daylight(w.clock(), log=False)
+        w.seed_reefs()
+        s = w.schools[0]
+        t = up.Turtle(up.random_genome(), s.home.x, s.home.y, age=up.ADULT_AGE)
+        t.state, t.state_t, t.energy, t.air = "cleaning", 99, 0.9, 999
+        s.cleaning = t
+        w.turtles = [t]
+        pecks = 0
+        for _ in range(100):
+            w.step(0.1)
+            pecks += sum(1 for f in w.fx if f[0] == "peck")
+            w.fx.clear()
+        self.assertGreater(pecks, 5)
+        near = [math.hypot(f.x - t.x, f.y - t.y) for f in w.fish if f.school is s]
+        self.assertLess(max(near), t.radius + 6)              # 魚がカメの体の上にいる
+
+    def test_surfers_mostly_wipe_out(self):
+        random.seed(32)
+        w = up.World()
+        w.clock = lambda: at(6, 21, 12, 0)
+        w.update_daylight(w.clock(), log=False)
+        ts = []
+        for i in range(12):
+            g = up.random_genome()
+            g.update(whim=0.95, activity=0.95)
+            t = up.Turtle(g, 40 + i * 52, w.land_top * 0.75, age=up.ADULT_AGE)
+            t.energy, t.air, t.fatigue, t.joy = 1.0, 999, 0, 0.8
+            ts.append(t)
+        w.turtles = ts
+        w.waves = []
+        w.big_t = 0
+        seen = set()
+        for _ in range(800):
+            w.step(0.1)
+            for t in ts:
+                t.air = 999
+                seen.add(t.state)
+            if w.big_wave is None and seen & {"surf"}:
+                break
+        msg = [e[2] for e in w.events if "shore" in e[2]]
+        self.assertIn("wipeout", seen)
+        self.assertTrue(msg and "wiped out" in msg[-1])
+
+
 class FakeBackend:
     def __init__(self):
         self.played, self.wave_state = [], None

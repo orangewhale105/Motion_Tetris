@@ -49,7 +49,7 @@ import string
 import sys
 import time
 
-VERSION = "4.4.0"
+VERSION = "4.5.0"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
@@ -75,7 +75,8 @@ PLANT_GROWTH = 0.00045        # 水草のロジスティック成長率(1/秒)
 PLANT_MIN = 0.08              # 食べ尽くされても根が残る量
 PLANT_EDIBLE = 0.18           # これより少ない水草は食べられない(根からの再生を待つ)
 PLANT_BASE = 0.00003           # 根からの再生(1/秒)
-PLANT_BITE = 0.22
+PLANT_BITE = 0.12             # ひとくち(小さくして、少しずつ減るのが見えるように)
+EAT_TIME = 0.8                # ひとくちにかかる時間(もぐもぐ)
 PLANT_SCARS = 3              # 根元まで食べられるのがこの回数続くと枯れる(食べ過ぎで藻場が消える)
 PLANT_HEAL = 20 * 60         # これだけ食べられなければ、傷が1つ治る
 SPROUT_GAP = (300, 600)       # ひとりでに芽が出る間隔(秒)。食べられなければ育って新しい藻場になる
@@ -494,6 +495,7 @@ class Plant:
     def __init__(self, x, y, b=0.3, m=None):
         self.x, self.y, self.b = x, y, b
         self.m = m                # 属する藻場の番号
+        self.bitten = -1e9        # 最後にかじられた時刻(揺れの演出)
         self.scars = 0            # 根元まで食べられた回数(3回で枯れる)
         self.scar_t = 0.0
         self.age = 0.0
@@ -580,6 +582,7 @@ class Wave:
         self.big = big
         self.hit = set()
         self.riders = set()
+        self.wiped = set()
         self.flipped = 0
         self.done = False
         self.reset(world, first)
@@ -588,6 +591,7 @@ class Wave:
         w = world
         self.hit.clear()
         self.riders.clear()
+        self.wiped.clear()
         self.flipped = 0
         if self.big:
             self.x, self.len, self.amp, self.sp = -w.w * 0.1, w.w * 1.2, 7.0, 22.0
@@ -964,7 +968,7 @@ class World:
         return g["whim"] > 0.55 or g["activity"] > 0.65 or (t.joy > 0.6 and g["care"] > 0.3)
 
     def _wave_hits(self, wv, t):
-        if t.state in ("lay", "nest", "flee_shark", "surf", "dead"):
+        if t.state in ("lay", "nest", "flee_shark", "surf", "wipeout", "dead"):
             return
         g = t.g
         if wv.big and t.y > self.land_top * 0.3 and t.state != "catch":
@@ -979,6 +983,9 @@ class World:
         if t.state == "catch" or (t.state == "swim" and self.playful(t) and t.energy > 0.4
                                   and random.random() < (0.6 if wv.big else 0.07)):
             t.state, t.surf = "surf", wv               # 波に乗って岸へ向かう
+            end = self.land_top - 4 if wv.big else self.shore(t.x) - 6
+            # たいていは途中でワイプアウト(岸まで乗り切れるのは4匹に1匹くらい)
+            t.wipe_at = None if random.random() < 0.25 else random.uniform(t.y + 12, max(t.y + 14, end - 8))
             wv.riders.add(t.id)
             t.say("star", 1.5)
             self.sfx.append("whoosh")
@@ -994,10 +1001,14 @@ class World:
                 t.joy = min(1.0, t.joy + 0.3)
                 t.say("star", 1.5)
         if wv.big:
-            if wv.riders:
+            if wv.riders or wv.wiped:
                 ids = sorted(wv.riders)
-                self.event("surf", "%s rode the big wave to the shore!" % (
-                    ", ".join("#%d" % i for i in ids[:4]) + (" and %d more" % (len(ids) - 4) if len(ids) > 4 else "")))
+                msg = ("%s rode all the way to the shore!" % (
+                    ", ".join("#%d" % i for i in ids[:4]) + (" and %d more" % (len(ids) - 4) if len(ids) > 4 else ""))
+                       if ids else "Nobody made it to the shore")
+                if wv.wiped:
+                    msg += "  %d wiped out" % len(wv.wiped)
+                self.event("surf", msg)
             for t in self.turtles:
                 if t.state == "catch":
                     t.state, t.surf = "swim", None
@@ -1016,7 +1027,7 @@ class World:
             if t is not None and (not t.alive or t.state != "cleaning"):
                 s.cleaning = t = None
             if t is not None:
-                s.cx, s.cy, s.spread = t.x, t.y, t.radius + 3
+                s.cx, s.cy, s.spread = t.x, t.y, t.radius
             else:
                 s.ang += dt * (0.45 - 0.35 * night)
                 s.cx = s.home.x + math.cos(s.ang) * (32 - 20 * night)
@@ -1026,11 +1037,25 @@ class World:
         for f in self.fish:
             s = f.school
             f.t -= dt
-            if f.t <= 0:
-                f.t = random.uniform(1.5, 4)
-                f.ox, f.oy = random.uniform(-1, 1), random.uniform(-1, 1)
-            tx, ty = s.cx + f.ox * s.spread, s.cy + f.oy * s.spread * 0.7
-            ax, ay = (tx - f.x) * 1.8, (ty - f.y) * 1.8
+            if s.cleaning is not None:
+                # クリーニング: 甲羅やひれの上の一点へ行ってつつき、また別の場所へ
+                if f.t <= 0:
+                    f.t = random.uniform(0.6, 1.3)
+                    a = random.uniform(0, math.tau)
+                    rr = s.spread * random.uniform(0.3, 0.95)
+                    f.ox, f.oy = math.cos(a) * rr, math.sin(a) * rr
+                    f.pecked = False
+                tx, ty = s.cx + f.ox, s.cy + f.oy
+                ax, ay = (tx - f.x) * 6.0, (ty - f.y) * 6.0
+                if not getattr(f, "pecked", True) and abs(tx - f.x) < 2.5 and abs(ty - f.y) < 2.5:
+                    f.pecked = True
+                    self.fx.append(("peck", tx + (2 if f.vx >= 0 else -2), ty))
+            else:
+                if f.t <= 0:
+                    f.t = random.uniform(1.5, 4)
+                    f.ox, f.oy = random.uniform(-1, 1), random.uniform(-1, 1)
+                tx, ty = s.cx + f.ox * s.spread, s.cy + f.oy * s.spread * 0.7
+                ax, ay = (tx - f.x) * 1.8, (ty - f.y) * 1.8
             if cur and abs(cur[0] - f.x) < 50 and abs(cur[1] - f.y) < 50:
                 d = math.hypot(f.x - cur[0], f.y - cur[1]) or 1.0
                 if d < 50:                                 # カーソルが来ると散る
@@ -1394,9 +1419,12 @@ class World:
             t.state, t.state_t = "flee_shark", 1.5
 
         st = t.state
-        if st in ("flipped", "dance", "lay", "breathe", "petted", "cleaning"):
+        if st in ("flipped", "dance", "lay", "breathe", "petted", "cleaning", "wipeout"):
             if t.state_t <= 0:
-                if st == "flipped":
+                if st == "wipeout":                           # 照れ笑い、またはしょんぼり
+                    t.state = "swim"
+                    t.say(random.choice(("blush", "note", "sweat", "dots")), 1.5)
+                elif st == "flipped":
                     if t.annoy > 0.5:
                         t.say("anger")
                         t.state, t.state_t = "flee", 2.0
@@ -1556,12 +1584,16 @@ class World:
         if f.gone:
             return
         self.sfx.append("munch")
+        a = math.atan2(f.y - t.y, f.x - t.x)              # 食べ物の方を向く
+        t.dir = (1 if math.cos(a) > 0 else 3) if abs(math.cos(a)) > abs(math.sin(a)) else (2 if math.sin(a) > 0 else 0)
         if f.kind == "plant":
             if f.b < PLANT_EDIBLE:
                 t.food = None
                 return
             bite = min(PLANT_BITE, f.b - PLANT_MIN)
             f.b -= bite
+            f.bitten = self.time
+            self.fx.append(("leaf", f.x, f.y))            # ちぎれた葉が舞う
             if f.b <= PLANT_MIN + 0.02:
                 f.scars += 1
                 f.scar_t = self.time
@@ -1569,10 +1601,11 @@ class World:
         else:
             f.gone = True
             t.energy += JELLY_ENERGY
+            self.fx.append(("pop", f.x, f.y))
         t.energy = min(1.0, t.energy)
-        t.joy = min(1.0, t.joy + 0.1)
-        t.eat_cd = 1.2
-        t.food_t = 0.0
+        t.joy = min(1.0, t.joy + 0.06)
+        t.eat_cd = EAT_TIME
+        t.food_t = 2.0 if f.kind == "plant" and f.b > PLANT_EDIBLE else 0.0   # 同じ株をもう一口
         if t.energy > 0.92:
             t.say("flower", 1.2)                    # おなかいっぱい
         elif random.random() < 0.3:
@@ -1597,7 +1630,11 @@ class World:
         dx = dy = 0.0
         mul = 1.0
         st = t.state
-        if st in ("sleep", "flipped", "lay", "breathe", "petted", "cleaning"):
+        if st == "wipeout":                                  # 波にもまれて流される
+            t.y += 10 * dt
+            t.dir = int(t.anim / 0.12) % 4
+            mul = 0.0
+        elif st in ("sleep", "flipped", "lay", "breathe", "petted", "cleaning"):
             mul = 0.0
         elif st == "flee_shark" and self.shark:
             sh = self.shark
@@ -1617,6 +1654,13 @@ class World:
             t.dir = 2
             if not (wv.x - 10 <= t.x <= wv.x + wv.len + 10):
                 wv.riders.discard(t.id)
+            if getattr(t, "wipe_at", None) is not None and t.y >= t.wipe_at:
+                wv.riders.discard(t.id)                       # ワイプアウト! 波にのまれてくるくる
+                wv.wiped.add(t.id)
+                t.state, t.state_t, t.surf, t.wipe_at = "wipeout", 1.6, None, None
+                t.say("surprise", 1.2)
+                self.fx.append(("splash", t.x, t.y))
+                self.sfx.append("splash")
             return
         elif st == "play" and t.vis:
             v = t.vis
@@ -1667,11 +1711,18 @@ class World:
                 t.state, t.food = "swim", None
             else:
                 dx, dy = f.x - t.x, f.y - t.y
-                if t.eat_cd > 0:
-                    mul = 0.1
-                elif math.hypot(dx, dy) < t.radius + 5:
+                # 株のふちで止まり、首だけのばして食べる(水草が隠れないように)
+                reach = (t.radius * 0.75 + 3 * (0.8 + 0.62 * plant_level(f.b)) * 0.6) if f.kind == "plant" else t.radius + 5
+                d = math.hypot(dx, dy)
+                if t.eat_cd > 0 or d < reach * 0.8:
+                    mul = 0.0
+                    if d < reach * 0.8:              # 近すぎたら少し下がる
+                        dx, dy, mul = -dx, -dy, 0.3
+                    if t.eat_cd <= 0:
+                        self._eat(t, f)
+                elif d < reach:
                     self._eat(t, f)
-                    mul = 0.1
+                    mul = 0.0
                 else:
                     mul = 1.1
         elif st == "court":
@@ -1779,7 +1830,11 @@ class World:
                 t.y = s
                 t.vy = -abs(t.vy)
                 t.heading = -abs(t.heading)
-        if st != "dance" and abs(t.vx) + abs(t.vy) > 2:
+        eating = st == "food" and t.food is not None and (t.eat_cd > 0 or mul == 0.0 or mul == 0.3)
+        if eating:                                      # 食べている間は食べ物の方を向いたまま
+            a = math.atan2(t.food.y - t.y, t.food.x - t.x)
+            t.dir = (1 if math.cos(a) > 0 else 3) if abs(math.cos(a)) > abs(math.sin(a)) else (2 if math.sin(a) > 0 else 0)
+        elif st != "dance" and abs(t.vx) + abs(t.vy) > 2:
             if abs(t.vx) > abs(t.vy):
                 t.dir = 1 if t.vx > 0 else 3
             else:
@@ -1956,7 +2011,7 @@ class World:
                "flee_shark": "fleeing from the shark!", "breathe": "poking its head out for air",
                "petted": "enjoying being petted", "to_bed": "heading to bed",
                "to_clean": "going to the cleaning station", "cleaning": "being cleaned by fish",
-               "surf": "surfing!", "catch": "paddling out to catch the big wave", "play": "playing with the visitor"}
+               "surf": "surfing!", "catch": "paddling out to catch the big wave", "wipeout": "wiped out!", "play": "playing with the visitor"}
         if not self.in_water(t.x, t.y) and t.state == "swim":
             st = "crawling to the sea"
         else:
@@ -2309,6 +2364,12 @@ FRAMES = (
      ".....T....."),
 )
 # 息継ぎ: 首をのばして頭を水面に出す(W=水面の輪)。甲羅は水の中で薄く見える
+EAT_HEAD = (("...........",            # 口を閉じる
+             "....HHH....",
+             "....EHE...."),
+            ("...H...H...",            # 口を開けて葉をくわえる
+             "...HMLMH...",
+             "....EHE...."))
 BREATHE_HEAD = ("...WWWWW...",
                 "..W.EHE.W..",
                 "...WHHHW...",
@@ -2498,10 +2559,15 @@ def turtle_pixels(g, frame, mode):
     style = style_of(g)
     out = []
     rows = base
+    shift = 0
     if mode == "breathe":
         rows = BREATHE_HEAD + base[2:]
+        shift = len(BREATHE_HEAD) - 2
+    elif mode == "eat":                       # もぐもぐ: 首をのばして口を開け閉め
+        rows = (EAT_HEAD[frame] + FRAMES[0][2:])
+        shift = 1
     for y0, row in enumerate(rows):
-        y = y0 - (len(BREATHE_HEAD) - 2 if mode == "breathe" else 0)
+        y = y0 - shift
         line = []
         for x, c in enumerate(row):
             if c == "S":
@@ -2524,10 +2590,31 @@ def turtle_pixels(g, frame, mode):
                 line.append(eye)
             elif c == "W":
                 line.append("#ffffff")
+            elif c == "M":
+                line.append("#7a3846")                    # 開いた口
+            elif c == "L":
+                line.append("#4fc27a")                    # くわえた葉
             else:
                 line.append(None)
         out.append(line)
     return out
+
+
+def plant_level(b):
+    """水草の量 → 絵の段階(0: 根だけ、1〜8: 小さい→大きい)。食べると1段ずつ小さくなるのが見える。"""
+    if b < 0.12:
+        return 0
+    return min(8, 1 + int((b - 0.12) / 0.88 * 8))
+
+
+def plant_rows(level):
+    """茂った水草の絵を、中心から level に応じた大きさだけ残す。"""
+    if level == 0:
+        return PLANT_ART[0]
+    full = PLANT_ART[3]
+    rr = 0.8 + level * 0.62
+    return tuple("".join(ch if math.hypot(x - 5, y - 5) <= rr else "." for x, ch in enumerate(row))
+                 for y, row in enumerate(full))
 
 
 def mix_hex(c1, c2, f):
@@ -3130,7 +3217,7 @@ class App:
         self.sprite_tint = sp
         pc = {"g": "#2fa86a", "G": "#7be8a2"}
         self.plant_img = [self._img(PLANT_ART[0], {"g": "#4e9a72"}, 3, sp)] + \
-                         [self._img(a, pc, 3, sp) for a in PLANT_ART[1:]]
+                         [self._img(plant_rows(lv), pc, 3, sp) for lv in range(1, 9)]
         self.egg_img = self._img(EGG_ART, {"X": "#fffdf2"}, 2, sp)
         self.star_img = self._img(STAR_ART, {"X": "#ff8a4c"}, 2, bg)
         sc = {"B": "#5d7b8c", "b": "#c9d6dc", "E": "#111111", "F": "#4a6676"}
@@ -3341,7 +3428,29 @@ class App:
 
     # ---- 演出(息継ぎの波紋・クラゲのしぶき・サメのひと噛み)
     def add_fx(self, kind, x, y):
-        if len(self.fx_items) > 24:
+        if len(self.fx_items) > 40:
+            return
+        c = self.canvas
+        if kind == "leaf":                          # ちぎれた葉が舞う
+            for _ in range(5):
+                it = c.create_rectangle(x, y, x + 3, y + 3, fill=random.choice(("#5ee08a", "#2fa86a", "#8ff0b0")),
+                                        width=0, tags="fx")
+                a = random.uniform(0, math.tau)
+                sp = random.uniform(15, 35)
+                self.fx_items.append([it, kind, x, y, 0.0, random.uniform(0.5, 0.8), math.cos(a) * sp, math.sin(a) * sp])
+            self.order_dirty = True
+            return
+        if kind == "peck":                          # 魚がつつくとキラッ
+            it = c.create_line(x - 3, y, x + 3, y, fill="#ffffff", tags="fx")
+            it2 = c.create_line(x, y - 3, x, y + 3, fill="#ffffff", tags="fx")
+            self.fx_items.append([it, kind, x, y, 0.0, 0.35, 0, 0])
+            self.fx_items.append([it2, kind, x, y, 0.0, 0.35, 0, 0])
+            self.order_dirty = True
+            return
+        if kind == "pop":
+            it = c.create_oval(x, y, x, y, outline="#ffc4ee", width=2, tags="fx")
+            self.fx_items.append([it, kind, x, y, 0.0, 0.4])
+            self.order_dirty = True
             return
         col = {"ripple": "#ffffff", "splash": "#ffffff", "bite": "#ff3434"}.get(kind, "#ffffff")
         n = 3 if kind == "ripple" else 2 if kind == "bite" else 1
@@ -3356,9 +3465,17 @@ class App:
         keep = []
         for f in self.fx_items:
             f[4] += dt
-            it, kind, x, y, t, life = f
+            it, kind, x, y, t, life = f[:6]
             if t > life:
                 c.delete(it)
+                continue
+            if kind == "leaf":
+                px, py = x + f[6] * t, y + f[7] * t - 6 * t
+                c.coords(it, px, py, px + 3, py + 3)
+                keep.append(f)
+                continue
+            if kind == "peck":
+                keep.append(f)
                 continue
             if t >= 0:
                 r = 2 + t / life * ({"splash": 10, "ripple": 16}.get(kind, 22))
@@ -3550,9 +3667,15 @@ class App:
             return (2, 0, "dead", t.scale)
         if t.state == "flipped":
             return (t.dir, int(t.anim / 0.12) % 2, "belly", t.scale)
+        if t.state == "wipeout":                       # くるくる回って、ときどきおなかが見える
+            return (t.dir, int(t.anim / 0.12) % 2, "belly" if int(t.anim / 0.24) % 2 else "normal", t.scale)
         if t.state == "breathe":
             return (t.dir, 0, "breathe", t.scale)
-        if t.state in ("sleep", "lay", "petted", "cleaning"):
+        if t.state == "food" and t.eat_cd > 0:
+            return (t.dir, int(t.anim / 0.14) % 2, "eat", t.scale)
+        if t.state == "cleaning":                       # 気持ちよさそうに、ひれをゆっくり
+            return (t.dir, int(t.anim / 0.9) % 2, "normal", t.scale)
+        if t.state in ("sleep", "lay", "petted"):
             return (t.dir, 0, "normal", t.scale)
         if t.state == "surf":
             return (t.dir, 1, "normal", t.scale)
@@ -3564,10 +3687,26 @@ class App:
         c, w = self.canvas, self.world
         if w.meadow_changed:
             self.update_meadows()
-        self._sync("plant", w.plants, lambda p: self.plant_img[p.stage], move=False)
+        self._sync("plant", w.plants, lambda p: self.plant_img[plant_level(p.b)], move=False)
+        ptab = self.tables["plant"]
+        for p in w.plants:                              # かじられた株がふるえる
+            age = w.time - p.bitten
+            if age < 0.7:
+                ent = ptab.get(id(p))
+                if ent:
+                    off = math.sin(age * 45) * 2.5 * (1 - age / 0.7) if age < 0.65 else 0
+                    c.coords(ent[0], round(p.x + off), round(p.y))
         self._sync("egg", w.eggs, lambda e: self.egg_img, move=False)
         self._sync("jelly", w.jellies, lambda o: self.jelly_img)
         self._sync("fish", w.fish, lambda f: self.fish_img[(f.school.kind, 1 if f.vx >= 0 else 3)])
+        ftab = self.tables["fish"]
+        for f in w.fish:                                # クリーニング中の魚はカメの上に
+            ent = ftab.get(id(f))
+            want = "fishtop" if f.school.cleaning is not None else "fish"
+            if ent and (len(ent) < 3 or ent[2] != want):
+                c.itemconfigure(ent[0], tags=(want,))
+                ent[2:] = [want]
+                self.order_dirty = True
         self._sync("visitor", w.visitors,
                    lambda v: self.vis_img[(v.kind + ("2" if getattr(v, "shell", 0) else ""), v.dir,
                                            int(v.anim / (0.25 if v.kind == "dolphin" else 0.5)) % 2)])
@@ -3665,7 +3804,7 @@ class App:
 
         if self.order_dirty:
             for tag in ("bg", "glit", "meadow", "plant", "reef", "wave", "bg2", "egg", "fish", "jelly",
-                        "rel", "turtle", "visitor", "shark", "fx", "ui", "panel", "tip"):
+                        "rel", "turtle", "fishtop", "visitor", "shark", "fx", "ui", "panel", "tip"):
                 c.tag_raise(tag)
             self.order_dirty = False
 
