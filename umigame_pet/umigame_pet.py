@@ -51,7 +51,7 @@ import string
 import sys
 import time
 
-VERSION = "7.0.0"
+VERSION = "7.1.0"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
@@ -62,7 +62,11 @@ TIME_SCALE = 36.0             # カメの時間の進み方: 実時間の40分 =
 # 泳ぐ速さ・息継ぎ・アニメーション・波・訪問者の来る間隔(サメ30分など)は実時間のまま。
 JUVENILE_AGE = 6 * HOUR       # これより若いと一番小さい姿(カメの時間)
 ADULT_AGE = 20 * HOUR         # 大人になる年齢。寿命は平均 4〜5 日、最大 1 か月ほど(カメの時間)
-MATE_COOLDOWN = 10 * HOUR
+MATE_COOLDOWN = 10 * HOUR     # (旧版の互換用)
+FEMALE_MATE_GAP = 2.5 * 24 * HOUR   # メスが次に交尾するまで(本物のウミガメは数年に1度。1回の交尾で何度も産む)
+MALE_MATE_GAP = 1.2 * 24 * HOUR     # オスが次に交尾するまで
+CLUTCH_GAP = 20 * HOUR        # 1回の交尾の後、次の産卵までの間(精子をたくわえて、交尾なしで産む)
+COURT_CHANCE = 1 / 90.0       # 相手を探し始める確率(実時間1秒あたり)。のんびり過ごすのが基本
 EGG_TIME = 6 * HOUR           # 卵がかえるまで(その後、夜を待ってふ化)
 LAY_GAME = 1.5 * 3600         # 産卵にかかる時間(本物のウミガメに合わせて約1時間半、カメの時間)
 LAY_TIME = LAY_GAME / TIME_SCALE    # 同じ時間を実時間の秒で(穴を掘る → 涙を流しながら産む → 砂をかける)
@@ -585,7 +589,7 @@ class Turtle:
                 "sleep": self.state == "sleep", "joy": self.joy, "annoy": self.annoy,
                 "partner": self.partner, "aff": {str(k): round(v, 3) for k, v in self.aff.items()},
                 "pets": self.pets, "lucky": self.lucky, "lucky_life": self.lucky_life, "sick": self.sick,
-                "origin": self.origin,
+                "origin": self.origin, "stored": getattr(self, "stored", None),
                 "name": self.name, "mom": self.mom, "dad": self.dad, "stats": self.stats}
 
     @classmethod
@@ -603,6 +607,7 @@ class Turtle:
         t.lucky = d.get("lucky", t.lucky)
         t.lucky_life = min(d.get("lucky_life", t.lucky_life), 30 * DAY)
         t.origin = d.get("origin", "native")
+        t.stored = d.get("stored")
         t.sick = d.get("sick", 0.0)
         t.name = d.get("name")
         t.mom, t.dad = d.get("mom"), d.get("dad")
@@ -1702,6 +1707,9 @@ class World:
                     d = math.hypot(t.x - sh.x, t.y - sh.y)
                     if d < best:
                         tg, best = t, d
+            if tg is not None:                             # 襲いかかる!(効果音はイベントの知らせで鳴る)
+                if self.log_ok("attack", 120):
+                    self.event("shark", "The %s is attacking %s!" % (sh.name, self.tag(tg)))
             sh.target = tg
         if tg is not None:
             dx, dy = tg.x - sh.x, tg.y - sh.y
@@ -1710,6 +1718,7 @@ class World:
             if d < 22 + tg.radius:
                 if random.random() < (0.15 if tg.lucky else 0.35):
                     self._kill(tg, "being eaten", killer=sh.name)
+                    self.sfx.append("attack")
                     tg.dead_t = CORPSE_TIME - 1.0
                     self.fx.append(("bite", tg.x, tg.y))
                 else:                                      # 間一髪で逃げる
@@ -1981,7 +1990,7 @@ class World:
 
     def start_crisis(self, kind, fatal=False):
         alive = [t for t in self.turtles if t.alive]
-        frac = 1.0 if fatal else random.uniform(0.45, 0.8)
+        frac = 1.0 if fatal else random.uniform(0.35, 0.7)
         msg = {"storm": "A terrible storm hit the sea!",
                "red tide": "A red tide spread through the water!",
                "epidemic": "A turtle epidemic broke out!",
@@ -2137,6 +2146,7 @@ class World:
 
         t.age += bdt
         t.mate_cd -= bdt
+        self._stored_clutch(t, bdt)
         t.eat_cd -= dt
         t.clean_cd -= bdt
         t.joy = max(0.0, t.joy - 0.015 * dt)
@@ -2316,7 +2326,7 @@ class World:
                     self.event("watch", "%s is watching the %s with great interest"
                                % (self.tag(t), VIS_NAMES.get(v.kind, v.kind)))
                 return
-        if (t.sex == "M" and t.adult and random.random() < dt * 0.03 * max(0.0, g["flirt"] - 0.4)
+        if (t.sex == "M" and t.adult and random.random() < dt * 0.008 * max(0.0, g["flirt"] - 0.5)
                 and t.energy > 0.45):                           # メスを追いかけ回す
             fem = [f for f in self.turtles if f.alive and f.sex == "F" and f.adult and f.state in ("swim", "food")
                    and math.hypot(f.x - t.x, f.y - t.y) < 180]
@@ -2444,7 +2454,7 @@ class World:
             t.state = "court"
         elif prev == "to_clean" and t.goal is not None:
             t.state = "to_clean"
-        elif self._can_mate(t) and self.night < 0.6:
+        elif self._can_mate(t) and self.night < 0.6 and random.random() < dt * COURT_CHANCE * (1 + t.g["flirt"]):
             p = self._find_partner(t)
             if p:
                 t.state, t.target = "court", p
@@ -2543,6 +2553,28 @@ class World:
             t.say("flower", 1.2)                    # おなかいっぱい
         elif random.random() < 0.3:
             t.say("note", 1.0)
+
+    def _stored_clutch(self, t, bdt):
+        """たくわえた精子で、交尾なしで次の卵を準備する(本物のウミガメは1シーズンに何度も産卵する)。"""
+        st = getattr(t, "stored", None)
+        if not st or t.clutch or t.sex != "F":
+            return
+        st["t"] -= bdt
+        if st["t"] > 0 or t.energy < 0.5:
+            return
+        n = min(MAX_TURTLES - self.population(), 3 + int(t.g["fertility"] * 3.99), int((t.energy - 0.12) / EGG_COST))
+        if n <= 0:
+            st["t"] = HOUR
+            return
+        t.energy -= EGG_COST * n
+        t.clutch = [{"g": mutate(crossover(t.g, st["dg"])), "dad": st["dad"],
+                     "gen": max(t.generation, st["dgen"]) + 1, "par": "#%d x #%d" % (t.id, st["dad"])}
+                    for _ in range(n)]
+        t.nest = None
+        st["left"] -= 1
+        st["t"] = CLUTCH_GAP * random.uniform(0.8, 1.2)
+        if st["left"] <= 0:
+            t.stored = None
 
     def _lay(self, t):
         n = 0
@@ -2870,7 +2902,7 @@ class World:
             return
         again = mom.partner == dad.id
         for t in (a, b):
-            t.mate_cd = MATE_COOLDOWN * (0.8 + 0.4 * random.random())
+            t.mate_cd = (FEMALE_MATE_GAP if t is mom else MALE_MATE_GAP) * (0.8 + 0.4 * random.random())
             t.energy -= EGG_COST * n if t is mom else 0.2
             t.state, t.target = "swim", None
             t.say("heart", 2.0)
@@ -2881,6 +2913,8 @@ class World:
                        "gen": max(mom.generation, dad.generation) + 1,
                        "par": "#%d x #%d" % (mom.id, dad.id)} for _ in range(n)]
         mom.nest = None
+        mom.stored = {"dg": dad.g, "dad": dad.id, "dgen": dad.generation, "left": random.randint(1, 2),
+                      "t": CLUTCH_GAP * random.uniform(0.8, 1.2)}      # 次の産卵も、この父親の子
         self.event("mate", "%s and %s %s" % (self.tag(mom), self.tag(dad),
                                              "renewed their bond" if again else "fell in love and mated"))
 
@@ -3145,6 +3179,7 @@ class World:
         for t in alive:
             t.age += dt
             t.mate_cd -= dt
+            self._stored_clutch(t, dt)
             awake = t.awake_len / (t.awake_len + t.sleep_len) * (1 - 0.8 * t.night_pull(self.night))
             t.energy -= t.metab * dt * (awake + SLEEP_METAB * (1 - awake))
             t.joy = max(0.0, t.joy - 0.015 * dt)
@@ -3202,7 +3237,7 @@ class World:
             random.shuffle(fem)
             random.shuffle(mal)
             for f, m in zip(fem, mal):
-                if random.random() < 0.5 and self._can_mate(f) and self._can_mate(m):
+                if random.random() < 0.3 and self._can_mate(f) and self._can_mate(m):
                     self._mate(f, m)
         self._immigrants(dt, offline=True)
         self._crisis(dt)
@@ -3788,7 +3823,7 @@ def sparkle_amount(world):
 
 # ---------------------------------------------------------------- サウンド(標準ライブラリで合成)
 SR = 22050                     # サンプリング周波数
-SOUND_VER = 2                  # 音を作り直したら上げる(キャッシュのファイル名に入る)
+SOUND_VER = 3                  # 音を作り直したら上げる(キャッシュのファイル名に入る)
 WAVE_LOOP_SEC = 12.0
 
 
@@ -3879,17 +3914,43 @@ def make_sounds():
     s["hatch"] = _seq(*[_tone(f, 0.07, 0.1, 0.002, 0.05) for f in (1319, 1568, 1976, 2637)])
     s["lay"] = _add(_tone(120, 0.2, 0.25, 0.003, 0.08), _noise(0.25, 0.1, 0.12, 0.01, 0.1))
     s["death"] = _tone(660, 0.9, 0.12, 0.02, 0.5, freq2=330)
-    s["shark"] = _seq(_tone(82, 0.32, 0.32, 0.01, 0.2, harm=0.7), _tone(87, 0.5, 0.32, 0.01, 0.3, harm=0.7), gap=0.12)
-    s["dolphin"] = _seq(_tone(2000, 0.12, 0.08, 0.003, 0.1, freq2=3400), _tone(3400, 0.14, 0.08, 0.003, 0.1, freq2=2500),
-                        _noise(0.02, 0.15, 0.6, 0.001, 0.01), _noise(0.02, 0.15, 0.6, 0.001, 0.01), gap=0.04)
+    # サメ: 低い半音の繰り返しがだんだん速くなり、不協和なうなりが重なる(おどろおどろしい)
+    pulses = []
+    for i, gap in enumerate((0.42, 0.34, 0.27, 0.2, 0.15, 0.11, 0.08, 0.06)):
+        f = 82 if i % 2 == 0 else 87
+        pulses.append(_tone(f, 0.16, 0.36, 0.005, 0.1, harm=0.8) + [0.0] * int(SR * gap))
+    drone = _add(_tone(58, 2.6, 0.16, 0.6, 0.8, harm=0.5), _tone(82, 2.6, 0.08, 0.8, 0.8, freq2=79))
+    drone = _add(drone, _tone(116, 2.4, 0.06, 1.0, 0.6, freq2=123), 0.2)               # 増4度のうなり
+    s["shark"] = _add(drone, _seq(*pulses))
+    # サメの襲撃: 不協和な強打と、高く引きつる音、低い衝撃
+    stab = _add(_tone(110, 0.9, 0.26, 0.003, 0.6, harm=0.9), _tone(155.6, 0.9, 0.2, 0.003, 0.6, harm=0.6))
+    stab = _add(stab, _tone(1480, 0.7, 0.08, 0.003, 0.5, freq2=1570))
+    stab = _add(stab, _tone(2093, 0.5, 0.05, 0.003, 0.4, freq2=2217), 0.05)
+    s["attack"] = _add(_add(stab, _noise(0.5, 0.3, 0.08, 0.002, 0.3)), _tone(45, 0.7, 0.4, 0.002, 0.5), 0.0)
+    # イルカ: キュイキュイと口笛、クリック音のはずむ遊び声
+    whistle = [_tone(f0, d, 0.09, 0.005, 0.06, freq2=f1)
+               for f0, f1, d in ((1800, 3200, 0.12), (3000, 2200, 0.1), (2200, 3600, 0.14), (3400, 2600, 0.12))]
+    clicks = _seq(*[_noise(0.012, 0.2, 0.7, 0.001, 0.005) for _ in range(7)], gap=0.03)
+    s["dolphin"] = _add(_seq(*whistle, gap=0.05), clicks, 0.62)
+    # マンタ: ゆったり楽しげな、マリンバのような上りのアルペジオ
+    s["manta"] = _seq(*[_add(_tone(f, 0.28, 0.12, 0.003, 0.22), _tone(f * 4, 0.12, 0.03, 0.002, 0.08))
+                        for f in (523, 659, 784, 880, 1047, 1319)], gap=0.0)
     s["whoosh"] = _noise(0.6, 0.22, 0.03, 0.15, 0.3, lp2=0.35)
     s["bell"] = _add(_tone(1046, 1.2, 0.1, 0.003, 0.5), _tone(2093, 0.8, 0.04, 0.003, 0.3))
-    s["bigwave"] = _noise(2.6, 0.55, 0.02, 0.6, 1.0, lp2=0.25, rnd=random.Random(3))
+    # 大波: 遠くから低いうなりが近づき、大きく砕ける
+    roar = _noise(4.0, 0.7, 0.008, 1.6, 1.2, lp2=0.06, rnd=random.Random(3))
+    s["bigwave"] = _add(roar, _noise(2.2, 0.55, 0.05, 0.05, 1.6, lp2=0.4, rnd=random.Random(4)), 1.8)
+    s["crash"] = _add(_noise(2.0, 0.65, 0.3, 0.01, 1.4, lp2=0.04, rnd=random.Random(5)),
+                      _tone(55, 0.8, 0.35, 0.005, 0.6))
     s["chomp"] = _add(_noise(0.2, 0.35, 0.25, 0.002, 0.06), _tone(60, 0.25, 0.35, 0.002, 0.1))
     s["sparkle"] = _seq(*[_tone(f, 0.06, 0.08, 0.002, 0.04) for f in (2093, 2637, 3136)])
     # 交尾: ゆったりした恋の和音(ふるえる音)ときらきら
     love = _seq(*[_tone(f, 0.22, 0.10, 0.02, 0.25, harm=0.2) for f in (523, 659, 784, 1047)])
     s["love"] = _add(love, s["sparkle"], 0.75)
+    for k, v in s.items():                                     # 音割れしないように
+        peak = max(abs(x) for x in v) or 1.0
+        if peak > 0.9:
+            s[k] = [x * 0.9 / peak for x in v]
     return s
 
 
@@ -3918,7 +3979,8 @@ def build_sound_files(folder=None):
     folder = folder or sound_cache_dir()
     os.makedirs(folder, exist_ok=True)
     names = ["waves", "splash", "breath", "note", "heart", "anger", "surprise", "flip", "munch",
-             "hatch", "lay", "death", "shark", "dolphin", "whoosh", "bell", "bigwave", "chomp", "sparkle", "love"]
+             "hatch", "lay", "death", "shark", "dolphin", "whoosh", "bell", "bigwave", "chomp", "sparkle", "love",
+             "attack", "manta", "crash"]
     paths = {n: os.path.join(folder, n + ".wav") for n in names}
     if not all(os.path.exists(p) for p in paths.values()):
         sounds = make_sounds()
@@ -4205,13 +4267,15 @@ EMOTE_SOUND = {"note": "note", "flower": "note", "star": "note", "heart": "heart
 
 def event_sound(kind, text):
     if kind == "shark":
-        return "shark" if text.startswith("A shark appeared") else None
+        if text.startswith("A shark appeared"):
+            return "shark"
+        return "attack" if ("escaped" in text or "attacking" in text) else None
     if kind == "wave":
-        return "bigwave" if "coming" in text else None
+        return "bigwave" if "coming" in text else "crash" if "flipped" in text else None
     if kind == "visitor":
-        return "dolphin" if "dolphin" in text else "whoosh" if "manta" in text else None
+        return "dolphin" if "dolphin" in text else "manta" if "manta" in text else None
     if kind == "play":
-        return "dolphin" if "dolphin" in text else "note"
+        return "dolphin" if "dolphin" in text else "manta" if "manta" in text else "note"
     return EVENT_SOUND.get(kind)
 
 

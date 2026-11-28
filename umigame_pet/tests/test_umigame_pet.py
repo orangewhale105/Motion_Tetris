@@ -338,8 +338,9 @@ class TestNewFeatures(unittest.TestCase):
         w.visitors, w.big_t, w.shark_t = [], 1e9, 1e9
         w.vis_t = {k: 1e9 for k in w.vis_t}
         for _ in range(6000):                             # 一緒にいると友達になる
-            for t in ts:
+            for i, t in enumerate(ts):
                 t.air, t.energy, t.fatigue, t.clean_cd = 999, 1.0, 0.0, 1e9
+                t.x, t.y = 300 + i * 12, 150                    # 近くで過ごさせる
             w.step(0.1)
         self.assertTrue(any(w.friends(t) for t in ts))
         for kind in ("manta", "hermit", "coconut"):
@@ -1052,6 +1053,35 @@ class TestV7(unittest.TestCase):
         for _ in range(200):
             w2._emigrate(up.HOUR)
         self.assertFalse(any(t.state == "depart" for t in w2.turtles))
+
+    def test_mating_is_rare_and_stored_clutches(self):
+        """交尾はまれ(メスは約2.5日に1度)。1回の交尾のあと、交尾なしでもう1〜2回産む。"""
+        random.seed(80)
+        w = self.make()
+        f = up.Turtle(up.random_genome(), 300, 150, age=up.ADULT_AGE, sex="F")
+        m = up.Turtle(up.random_genome(), 310, 150, age=up.ADULT_AGE, sex="M")
+        f.energy = m.energy = 1.0
+        f.mate_cd = m.mate_cd = 0
+        w.turtles = [f, m]
+        w._pop = 2
+        w._mate(f, m)
+        self.assertGreater(f.mate_cd, 1.9 * up.DAY)
+        self.assertGreater(m.mate_cd, 0.9 * up.DAY)
+        self.assertTrue(f.clutch)
+        f.clutch = None                                          # 産んだことにする
+        f.energy = 1.0
+        w._stored_clutch(f, up.CLUTCH_GAP * 1.3)
+        self.assertTrue(f.clutch)                                # 交尾なしで次の卵
+        self.assertEqual(f.clutch[0]["dad"], m.id)
+
+    def test_new_sounds(self):
+        s = up.make_sounds()
+        for k in ("attack", "manta", "crash", "shark", "dolphin", "bigwave"):
+            self.assertTrue(s[k])
+        self.assertGreater(len(s["bigwave"]), up.SR * 3.5)       # 大波は長く大きく
+        self.assertEqual(up.event_sound("shark", "The Tiger shark is attacking #3 (A)!"), "attack")
+        self.assertEqual(up.event_sound("visitor", "A manta ray is gliding by"), "manta")
+        self.assertEqual(up.event_sound("wave", "The big wave flipped 2 turtles over!"), "crash")
 
 
 if __name__ == "__main__":
