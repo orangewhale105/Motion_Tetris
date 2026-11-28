@@ -549,7 +549,7 @@ class TestLifeAndNight(unittest.TestCase):
         self.assertTrue(all(15 <= t.lifespan / up.DAY <= 30 for t in lucky))
         normal = [t.lifespan / up.DAY for t in ts if not t.lucky]
         self.assertTrue(4.0 <= sum(normal) / len(normal) <= 5.0)
-        self.assertTrue(all(2 <= d <= 8 for d in normal))
+        self.assertTrue(all(1.4 <= d <= 9.5 for d in normal))      # ばらつきは大きめ(Ver 7.4.1)
 
     def test_named_turtle_life_story(self):
         random.seed(41)
@@ -1095,7 +1095,7 @@ class TestV7(unittest.TestCase):
         t.energy, t.mate_cd = 1.0, 0
         w.turtles, w._pop = [t], 1
         self.assertTrue(w._can_mate(t))
-        w.mates_today = 2
+        w.mates_today = 3                                         # とても少ないときでも 3 ペアまで
         self.assertFalse(w._can_mate(t))
         w.update_daylight(up.turtle_clock(at(6, 21, 13, 0)), log=False)
         w.mates_today = 0
@@ -1175,7 +1175,7 @@ class TestV7(unittest.TestCase):
             w.update_daylight(up.turtle_clock(at(6, 21, 7, 0)), log=False)
             w.mating_open()
             quotas[n] = w.mate_quota
-        self.assertEqual(quotas[3], 2)
+        self.assertEqual(quotas[3], 3)
         self.assertEqual(quotas[14], 0)
         w.turtles = [up.Turtle(up.random_genome(), 100 + i * 20, 120, age=up.ADULT_AGE) for i in range(10)]
         w.start_crisis("red tide")
