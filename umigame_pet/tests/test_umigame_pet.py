@@ -354,13 +354,13 @@ class TestNewFeatures(unittest.TestCase):
             w.step(0.1)
         self.assertEqual(len(w.eggs), 1)
         w.clock = lambda: at(6, 21, 23, 0)
-        for _ in range(5):
+        for _ in range(40):                         # ゆれてから割れる(3秒)
             w.step(0.1)
         self.assertEqual(len(w.eggs), 0)
         self.assertEqual(w.births, 1)
 
     def test_generations_per_day(self):
-        """カメの1日(実時間1時間)でおよそ 1〜3 世代。"""
+        """世代交代: カメの1〜3日に1世代くらい。"""
         random.seed(15)
         w = up.World()
         base = at(6, 21, 12, 0)
@@ -370,8 +370,8 @@ class TestNewFeatures(unittest.TestCase):
         g0 = w.max_gen
         w.advance_offline(3 * 3600, start=base - 3 * 3600)   # 実時間3時間 = カメの3日
         per_day = (w.max_gen - g0) / 3.0
-        self.assertGreaterEqual(per_day, 0.7)
-        self.assertLessEqual(per_day, 4.0)
+        self.assertGreaterEqual(per_day, 0.25)
+        self.assertLessEqual(per_day, 2.0)
 
 
 class TestSeaweedAndVisitors(unittest.TestCase):
@@ -475,7 +475,7 @@ class TestAnimations(unittest.TestCase):
         self.assertGreater(t.energy, 0.9)
         self.assertEqual(chew, {0, 1})                 # 口を開け閉め
         self.assertIn("leaf", fx)
-        self.assertIn("gulp", fx)
+        self.assertNotIn("gulp", fx)                   # 緑の輪は出さない
         self.assertEqual(len(up.turtle_pixels(t.g, 1, "eat")), 12)
 
     def test_cleaning_fish_peck(self):
@@ -535,15 +535,16 @@ class TestLifeAndNight(unittest.TestCase):
         w.seed_plants()
         return w
 
-    def test_lucky_lives_about_a_week(self):
+    def test_lifespans(self):
+        """寿命: 平均 4〜5 日、運のよい個体(約1/10)は最大 1 か月ほど(どれもカメの時間)。"""
         random.seed(40)
         ts = [up.Turtle(up.random_genome(), 0, 0) for _ in range(2000)]
         lucky = [t for t in ts if t.lucky]
-        self.assertTrue(150 < len(lucky) < 260)                  # 約1/10
-        real_days = [t.lifespan / up.TIME_SCALE / 86400 for t in lucky]
-        self.assertTrue(all(5 <= d <= 9 for d in real_days))   # 実時間で1週間ほど
-        normal = [t.lifespan / up.TIME_SCALE / 3600 for t in ts if not t.lucky]
-        self.assertTrue(all(d < 2 for d in normal))            # ふつうは実時間で1〜1.5時間
+        self.assertTrue(150 < len(lucky) < 260)
+        self.assertTrue(all(15 <= t.lifespan / up.DAY <= 30 for t in lucky))
+        normal = [t.lifespan / up.DAY for t in ts if not t.lucky]
+        self.assertTrue(4.0 <= sum(normal) / len(normal) <= 5.0)
+        self.assertTrue(all(2 <= d <= 8 for d in normal))
 
     def test_named_turtle_life_story(self):
         random.seed(41)
@@ -634,6 +635,148 @@ class TestLifeAndNight(unittest.TestCase):
         w = up.World()
         w.phase = "Night"
         self.assertGreater(up.sparkle_amount(w), 0.8)              # 月光できらめく
+
+
+class TestV6(unittest.TestCase):
+    def make(self, hour=12):
+        w = up.World()
+        w.clock = lambda: at(6, 21, hour, 0)
+        w.update_daylight(w.clock(), log=False)
+        w.seed_reefs()
+        w.seed_plants()
+        w.vis_t = {k: 1e9 for k in w.vis_t}
+        w.shark_t = w.big_t = w.immigrant_t = 1e9
+        return w
+
+    def test_mating_animation_then_eggs(self):
+        random.seed(50)
+        w = self.make(10)
+        f = up.Turtle(up.random_genome(), 200, 150, age=up.ADULT_AGE, sex="F")
+        m = up.Turtle(up.random_genome(), 205, 150, age=up.ADULT_AGE, sex="M")
+        for t in (f, m):
+            t.energy, t.mate_cd, t.air, t.fatigue = 1.0, 0, 999, 0
+        w.turtles = [f, m]
+        w._start_mating(f, m)
+        self.assertEqual((f.state, m.state), ("mating", "mating"))
+        self.assertIn("love", w.sfx)
+        hearts = 0
+        for _ in range(50):
+            w.step(0.1)
+            hearts += sum(1 for x in w.fx if x[0] == "hearts")
+            w.fx.clear()
+        self.assertTrue(f.clutch)
+        self.assertGreater(hearts, 0)
+
+    def test_laying_tears_and_hatching_shake_and_bird(self):
+        random.seed(51)
+        w = self.make(23)
+        mom = up.Turtle(up.random_genome(), 300, w.shore(300) + 20, age=up.ADULT_AGE, sex="F")
+        mom.clutch = [{"g": up.random_genome(), "gen": 2, "par": "x", "dad": None} for _ in range(4)]
+        mom.state, mom.state_t, mom.air = "lay", up.LAY_TIME, 999
+        w.turtles = [mom]
+        kinds = set()
+        for _ in range(int(up.LAY_TIME / 0.1) + 5):
+            w.step(0.1)
+            kinds.update(x[0] for x in w.fx)
+            w.fx.clear()
+        self.assertIn("tear", kinds)
+        self.assertIn("dust", kinds)
+        self.assertEqual(len(w.eggs), 4)
+        self.assertTrue(any("shed tears" in e[2] for e in w.events))
+        for e in w.eggs:
+            e.t = 0
+        random.seed(3)
+        shook = False
+        for _ in range(60):
+            w.step(0.1)
+            shook = shook or any(getattr(e, "shake", None) for e in w.eggs)
+        self.assertTrue(shook)
+        self.assertEqual(len(w.eggs), 0)
+        w._spawn_bird(hunting=True)
+        bird = next(v for v in w.visitors if v.kind == "bird")
+        babies = [t for t in w.turtles if not t.adult]
+        for _ in range(300):
+            for b in babies:
+                if b.alive:
+                    b.y = w.shore(b.x) + 20                    # 浜にとどめる
+            w._move_bird(bird, 0.1)
+            if bird.tries >= 3 or bird.gone:
+                break
+        self.assertGreater(bird.tries, 0)
+
+    def test_quirks_and_weak(self):
+        random.seed(52)
+        w = self.make(10)
+        g = up.random_genome()
+        g.update(clumsy=1.0, watch=1.0, whim=0.9)
+        t = up.Turtle(g, 300, 150, age=up.ADULT_AGE)
+        t.energy, t.air, t.fatigue = 1.0, 999, 0
+        w.turtles = [t]
+        w.visitors = [up.Visitor("octopus", 320, 160, 1)]
+        seen = set()
+        for _ in range(4000):
+            t.state = "swim" if t.state in ("swim", "food") else t.state
+            w._quirks(t, 0.5, True)
+            seen.add(t.state)
+            t.state_t = 0
+            t.state = "swim"
+        self.assertTrue({"flipped", "watch", "idle"} <= seen)
+        t.energy = 0.1
+        self.assertTrue(w.weak(t))
+        self.assertTrue(up.turtle_pixels(g, 0, "weak"))
+
+    def test_origin_and_jokes(self):
+        random.seed(53)
+        w = self.make(10)
+        w.turtles = [up.Turtle(up.random_genome(), 100, 100, age=up.ADULT_AGE, sex="M")]
+        w.immigrant_t = 0
+        w._immigrants(0.1)
+        newc = [t for t in w.turtles if t.origin != "native"]
+        self.assertTrue(newc)
+        info = "\n".join(w.turtle_info(newc[0]))
+        self.assertIn("Newcomer: Wanderers I", info)
+        kid = up.Turtle(up.random_genome(), 120, 100)
+        w.by_id = {t.id: t for t in w.turtles}
+        w._born(kid, newc[0].id if newc[0].sex == "F" else None, None)
+        native = w.turtles[0]
+        self.assertIn("Native", "\n".join(w.turtle_info(native)))
+        g = dict(native.g, clumsy=0.9, surf=0.9)
+        native.g = g
+        info = "\n".join(w.turtle_info(native))
+        self.assertTrue(any(j in info for j in up.TRAIT_JOKES.values()))   # ユーモラスな説明
+
+    def test_coral_moves_and_trends(self):
+        random.seed(54)
+        w = self.make(10)
+        coral = next(r for r in w.reefs if r.kind == "coral")
+        x0, y0 = coral.x, coral.y
+        for _ in range(200):
+            w._coral_step(up.HOUR)
+        self.assertGreater(math.hypot(coral.x - x0, coral.y - y0), 3)
+        self.assertEqual(sum(r.kind == "rock" for r in w.reefs), 5)
+        w.turtles = [up.Turtle(up.random_genome(), 100 + i, 100, age=up.ADULT_AGE) for i in range(5)]
+        w.trend_t = -1e9
+        w._trends()
+        w.bio_time += up.DAY
+        w.turtles += [up.Turtle(up.random_genome(), 200 + i, 100, age=up.ADULT_AGE) for i in range(10)]
+        w.trend_t = -1e9
+        w._trends()
+        self.assertTrue(any("growing" in e[2] for e in w.events))
+
+    def test_save_dir_config(self):
+        with tempfile.TemporaryDirectory() as d:
+            old = up.CONFIG_PATH
+            up.CONFIG_PATH = os.path.join(d, "cfg.json")
+            env = os.environ.pop("UMIGAME_SAVE_DIR", None)
+            try:
+                with open(up.CONFIG_PATH, "w") as f:
+                    import json
+                    json.dump({"save_dir": os.path.join(d, "UmigamePet")}, f)
+                self.assertEqual(up.choose_save_dir(None)[0], os.path.join(d, "UmigamePet"))
+            finally:
+                up.CONFIG_PATH = old
+                if env:
+                    os.environ["UMIGAME_SAVE_DIR"] = env
 
 
 class FakeBackend:
