@@ -974,7 +974,7 @@ class TestV7(unittest.TestCase):
                 w._immigrants(600.0)
                 days += 600.0 / up.DAY
             arrivals.append(days)
-        self.assertTrue(0.6 < sum(arrivals) / len(arrivals) < 1.5)
+        self.assertTrue(0.3 < sum(arrivals) / len(arrivals) < 0.8)   # 絶滅したら半日ほどで1匹
 
     def test_crisis_kills_and_fatal(self):
         random.seed(75)
@@ -987,15 +987,15 @@ class TestV7(unittest.TestCase):
         self.assertEqual(len(w.alive()), 0)
         self.assertEqual(w.eggs, [])
         self.assertTrue(any("CRISIS" in e[2] for e in w.events))
-        hits = 0                                                     # 平均 21 日に 1 度くらい
+        hits = 0                                                     # カメの約1000日(実時間で約1か月)に1度
         w.crisis_t = 0
         w.start_crisis = lambda kind, fatal=False: None
         w.turtles = [up.Turtle(up.random_genome(), 100, 120, age=up.ADULT_AGE)]
-        for _ in range(420):
+        for _ in range(20000):
             w.crisis_t_before = w.crisis_t
             w._crisis(up.DAY)
             hits += w.crisis_t > w.crisis_t_before
-        self.assertTrue(10 <= hits <= 32)
+        self.assertTrue(12 <= hits <= 30)
 
     def test_lay_only_at_night_window(self):
         random.seed(76)
@@ -1158,6 +1158,28 @@ class TestV7(unittest.TestCase):
         app.root.after(3000, app.root.destroy)
         app.run()
         self.assertEqual(errs, [])
+
+    def test_homeostasis_births_follow_numbers(self):
+        """少ないと子が多く、多いと子が少ない(平均 8 匹ほどに保つ)。危機でも 2 匹ほどは残る。"""
+        random.seed(83)
+        w = self.make()
+        mom = up.Turtle(dict(up.random_genome(), fertility=0.5), 300, 150, age=up.ADULT_AGE, sex="F")
+        w._pop = 3
+        few = w.clutch_size(mom)
+        w._pop = 12
+        many = w.clutch_size(mom)
+        self.assertGreater(few, many)
+        quotas = {}
+        for n in (3, 8, 14):
+            w._pop, w._mate_new = n, True
+            w.update_daylight(up.turtle_clock(at(6, 21, 7, 0)), log=False)
+            w.mating_open()
+            quotas[n] = w.mate_quota
+        self.assertEqual(quotas[3], 2)
+        self.assertEqual(quotas[14], 0)
+        w.turtles = [up.Turtle(up.random_genome(), 100 + i * 20, 120, age=up.ADULT_AGE) for i in range(10)]
+        w.start_crisis("red tide")
+        self.assertTrue(1 <= len(w.alive()) <= 3)
 
 
 if __name__ == "__main__":

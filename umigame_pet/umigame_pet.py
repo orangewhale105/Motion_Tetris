@@ -51,7 +51,7 @@ import string
 import sys
 import time
 
-VERSION = "7.3.0"
+VERSION = "7.4.0"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
@@ -146,13 +146,15 @@ LUCKY_RATE = 0.1              # 運のよい個体の割合(実時間で1週間�
 IMMIGRANT_GAP = (45 * 60, 90 * 60)   # (旧版の互換用。今は IMMIGRANT_RATE を使う)
 IMMIGRANT_RATE = 1.0          # 外来ガメが来る頻度: カメの1日あたり 1/(今いる数+1) 回
 FOOD_TO_BREED = 1.0           # 1匹あたりの食べられる海藻がこれより少ないと、恋をしない(増えすぎを防ぐ)
-COLONY_SOFT = 16              # これより多いと恋をせず、旅立つカメも出る(のんびり眺められる数)
+POP_TARGET = 8                # ふだんのカメの数(ホメオスタシス: 少ないと子が多く、多いと少ない)
+COLONY_SOFT = 13              # これより多いと(卵も数えて)恋をしない
+COLONY_CROWD = 18             # これより多いと、ごくまれに旅立つカメが出る
 EMIGRATE_FOOD = 1.1           # 1匹あたりの食べられる海藻がこれを下回ると、旅立つカメが出る
 EMIGRATE_RATE = 0.06          # 旅立ちの起こりやすさ(カメの1時間・1匹あたり、最大)
 EMIGRATE_MIN = 6              # これより少ないときは旅立たない
-CRISIS_DAYS = 21.0            # 絶滅の危機(嵐・赤潮・伝染病・不作)は平均 21 日に1度
-CRISIS_MIN_DAYS = 6.0         # 危機と危機の間は最低これだけあく
-CRISIS_FATAL = 1.0 / 9.0      # 危機のうち全滅してしまう割合(およそ半年に1度の絶滅)
+CRISIS_DAYS = 1000.0          # 絶滅の危機(嵐・赤潮・伝染病・不作)はカメの約1000日(実時間で約1か月)に1度。2匹ほどまで減る
+CRISIS_MIN_DAYS = 300.0       # 危機と危機の間は最低これだけあく(実時間で約8日)
+CRISIS_FATAL = 1.0 / 6.0      # 危機のうち全滅してしまう割合(実時間でおよそ半年に1度の絶滅)
 SICK_RATE = 0.018             # 病気になる確率(カメの1時間あたり、混み合いや空腹で上がる)
 VISIT_LOG_GAP = 900           # よく来る訪問者は、イベント欄には5分に1回だけ書く
 BIG_WAVE_GAP = (15 * 60, 40 * 60)
@@ -1128,12 +1130,17 @@ class World:
             p.age += dt
             if p.scars >= PLANT_SCARS or p.age > p.life:       # 食べられ過ぎ・寿命で枯れる
                 dead.append(p)
+                if p.age > p.life:                           # 寿命: すぐそばに芽を残す(藻場はゆっくり移動しながら続く)
+                    a = random.uniform(0, math.tau)
+                    x, y = p.x + math.cos(a) * 12, p.y + math.sin(a) * 9
+                    if self.in_water(x, y + 10) and self._free_spot(x, y):
+                        new.append(Plant(x, y, 0.2, p.m))
                 continue
             if p.scars and self.bio_time - p.scar_t > PLANT_HEAL:
                 p.scars -= 1
                 p.scar_t = self.time
             m = self.meadows.get(p.m)
-            if (p.b > 0.5 and len(self.plants) + len(new) < PLANT_MAX and (m is None or m["n"] < MEADOW_MAX)
+            if (p.b > NIBBLE_FLOOR + 0.15 and len(self.plants) + len(new) < PLANT_MAX and (m is None or m["n"] < MEADOW_MAX)
                     and random.random() < min(1.0, dt * PLANT_SPREAD)):
                 for _ in range(6):                           # すぐ隣へ。藻場の「進む向き」に広がりやすい
                     a = (m["dir"] + random.gauss(0, 1.1)) if m and random.random() < 0.65 else random.uniform(0, math.tau)
@@ -1364,7 +1371,7 @@ class World:
         pop = len(alive) + len(self.eggs)
         if pop >= MAX_TURTLES - 1:
             return
-        if not force and random.random() >= IMMIGRANT_RATE * bdt / DAY / (pop + 1):
+        if not force and random.random() >= IMMIGRANT_RATE * (2.0 if pop < 3 else 1.0) * bdt / DAY / (pop + 1):
             return
         nf = sum(t.sex == "F" for t in alive)
         nm = len(alive) - nf
@@ -1971,8 +1978,8 @@ class World:
     def hatchling_leave(self):
         """子ガメが外洋へ旅立つ割合。海藻が少ないほど多い(15〜80%)。"""
         fp = getattr(self, "_food_per", 1.5)
-        few = min(1.0, len(self.alive()) / 12.0)              # 数が少ないうちは、ほとんど残る
-        return min(0.8, max(0.15, 0.75 - 0.3 * fp)) * few
+        n = len(self.alive())                                 # ふだんはほとんど残る。増えすぎたときだけ外洋へ
+        return min(0.7, max(0.0, (n - COLONY_SOFT) / 10.0)) + (0.3 if fp < EMIGRATE_FOOD else 0.0)
 
     def _emigrate(self, bdt, offline=False):
         """カメが増えて海藻が足りなくなると、何匹かは他の海域へ旅立つ(二度と戻らない)。"""
@@ -1980,7 +1987,7 @@ class World:
         if len(alive) < EMIGRATE_MIN:
             return
         food_per = self.edible_food() / len(alive)
-        crowd = max(0.0, (len(alive) - COLONY_SOFT) / 6.0)         # 混みすぎても旅立つ(画面がにぎやかすぎないように)
+        crowd = max(0.0, (len(alive) - COLONY_CROWD) / 6.0)        # ひどく混みあったときだけ(ごくまれ)
         if food_per >= EMIGRATE_FOOD and crowd <= 0:
             return
         p = EMIGRATE_RATE * (max(0.0, 1 - food_per / EMIGRATE_FOOD) + crowd) * bdt / HOUR * len(alive)
@@ -2022,7 +2029,7 @@ class World:
 
     def start_crisis(self, kind, fatal=False):
         alive = [t for t in self.turtles if t.alive]
-        frac = 1.0 if fatal else random.uniform(0.35, 0.7)
+        keep = 0 if fatal else random.choice((1, 2, 2, 3))         # 2匹ほどまで減って、ヒヤッとする
         msg = {"storm": "A terrible storm hit the sea!",
                "red tide": "A red tide spread through the water!",
                "epidemic": "A turtle epidemic broke out!",
@@ -2038,17 +2045,14 @@ class World:
             self.fish = [f for f in self.fish if random.random() < 0.5]
         elif kind == "famine":
             self.plants = [p for p in self.plants if random.random() < (0.0 if fatal else 0.12)]
-            for t in alive:                                 # おなかをすかせる(餓死は後から起こる)
-                t.energy = min(t.energy, random.uniform(0.15, 0.4))
             if fatal:
                 self.eggs = []
             cause = "starvation"
         if fatal and kind != "famine":
             self.eggs = []
-        if kind == "famine" and not fatal:
-            frac = 0.0
+        spared = set(id(t) for t in random.sample(alive, min(keep, len(alive))))   # 生き残るのは 1〜3 匹
         for t in alive:
-            if random.random() < frac:
+            if id(t) not in spared:
                 if kind == "epidemic":
                     t.stats["sick"] = t.stats.get("sick", 0) + 1
                 self._kill(t, cause)
@@ -2565,13 +2569,24 @@ class World:
     def mating_open(self):
         """今日まだ交尾できるか(朝だけ、1日に 1〜2 ペア)。"""
         a, b = MATING_HOURS
+        few = getattr(self, "_pop", POP_TARGET) < POP_TARGET - 3
+        if few and 16 <= self.hour < 18 and getattr(self, "mates_today", 0) < getattr(self, "mate_quota", 2):
+            return True                                           # 数が少ないときは夕方にも
         if not (a <= self.hour < b):
             if self.hour < a or self.hour >= b + 2:
                 self._mate_new = True                     # 次の朝は、また 1〜2 ペア
             return False
         if getattr(self, "_mate_new", True):
             self._mate_new, self.mates_today = False, 0
-            self.mate_quota = random.choice((1, 2, 2))
+            n = getattr(self, "_pop", POP_TARGET)                 # 卵も数える
+            if n < POP_TARGET - 3:
+                self.mate_quota = 2                               # 少ないときは 2 ペア
+            elif n < POP_TARGET + 1:
+                self.mate_quota = random.choice((1, 1, 2))
+            elif n < COLONY_SOFT:
+                self.mate_quota = 1 if random.random() < 0.5 else 0
+            else:
+                self.mate_quota = 0
         return self.mates_today < self.mate_quota
 
     def _can_mate(self, t):
@@ -2660,15 +2675,28 @@ class World:
         elif random.random() < 0.3:
             t.say("note", 1.0)
 
+    def clutch_size(self, mom):
+        """1回に産む卵の数。カメが少ないほど多く、多いほど少ない(ホメオスタシス)。"""
+        base = 2 + int(mom.g["fertility"] * 2.99)                 # 2〜4個
+        n = getattr(self, "_pop", POP_TARGET)
+        if n < POP_TARGET - 3:
+            base += 2
+        elif n > POP_TARGET + 2:
+            base -= 1
+        return max(1, base)
+
     def _stored_clutch(self, t, bdt):
         """たくわえた精子で、交尾なしで次の卵を準備する(本物のウミガメは1シーズンに何度も産卵する)。"""
         st = getattr(t, "stored", None)
         if not st or t.clutch or t.sex != "F":
             return
+        if st["left"] <= 0:
+            t.stored = None
+            return
         st["t"] -= bdt
         if st["t"] > 0 or t.energy < 0.5:
             return
-        n = min(MAX_TURTLES - self.population(), 3 + int(t.g["fertility"] * 3.99), int((t.energy - 0.12) / EGG_COST))
+        n = min(MAX_TURTLES - self.population(), self.clutch_size(t), int((t.energy - 0.12) / EGG_COST))
         if n <= 0:
             st["t"] = HOUR
             return
@@ -3015,7 +3043,7 @@ class World:
     def _mate(self, a, b):
         mom, dad = (a, b) if a.sex == "F" else (b, a)
         room = MAX_TURTLES - self.population()
-        n = min(room, 3 + int(mom.g["fertility"] * 3.99),
+        n = min(room, self.clutch_size(mom),
                 int((mom.energy - 0.12) / EGG_COST))        # 産める数は母親の栄養しだい
         if n <= 0:                                           # 産めなくても、しばらくは交尾しない
             for t in (a, b):
@@ -3035,7 +3063,8 @@ class World:
                        "gen": max(mom.generation, dad.generation) + 1,
                        "par": "#%d x #%d" % (mom.id, dad.id)} for _ in range(n)]
         mom.nest = None
-        mom.stored = {"dg": dad.g, "dad": dad.id, "dgen": dad.generation, "left": random.randint(1, 2),
+        mom.stored = {"dg": dad.g, "dad": dad.id, "dgen": dad.generation,
+                      "left": 2 if self._pop < POP_TARGET - 2 else 1 if self._pop < POP_TARGET + 2 else 0,
                       "t": CLUTCH_GAP * random.uniform(0.8, 1.2)}      # 次の産卵も、この父親の子
         self.event("mate", "%s and %s %s" % (self.tag(mom), self.tag(dad),
                                              "renewed their bond" if again else "fell in love and mated"))
