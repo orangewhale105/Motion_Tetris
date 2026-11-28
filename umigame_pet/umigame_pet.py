@@ -8,8 +8,9 @@ Sea Turtle Colony(ウミガメ群体)— デスクトップで動く人工生命
   まれに濃い色の個体が生まれる。甲羅の模様は 8 種類(無地・水玉・しま・亀甲・リング・まだら・市松・ハート)。
 ・遺伝的アルゴリズム: 色・模様・速さ・寿命・大きさ・食性(草食/雑食)・性格(活発さ・食欲・カーソルの好き嫌い・
   群れたがり・無頓着さ・気まま・気の短さ)・産卵数。交尾で交叉(スクランブル)+突然変異。系統(Lineage)は母系。
-・時間の進み方: 1日(実時間)でおよそ 1〜3 世代が入れ替わる(大人まで約5時間、寿命 12〜24時間)。
-  朝・昼・夕・夜の見た目はパソコンの時計に合わせる(夏の日のイメージ: 日の出 4:36、日の入り 18:54)。
+・時間の進み方(Ver 5): カメの時間は実時間の24倍(実時間1時間 = カメの1日)。毎時0分がカメの0:00、30分が正午。
+  カメの1日でおよそ1世代(大人まで約5時間、寿命20〜36時間、カメの時間)。泳ぐ速さ・訪問者の間隔などは実時間。
+  夏の日のイメージ(日の出 4:36、日の入り 18:54。カメの時刻)。
 ・暮らし(ウミガメの生態に合わせた1日):
     朝(5〜10時)と夕方(15〜19時)によく食べる。昼(11〜14時)はサンゴでくつろぎ、熱帯魚にクリーニングしてもらう。
     夜は岩場やサンゴのそばで眠る。産卵は夜、メスが砂浜に上がって行う。子ガメも夜にふ化して海へ向かう。
@@ -49,12 +50,15 @@ import string
 import sys
 import time
 
-VERSION = "4.5.0"
+VERSION = "5.0.0"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
 MAX_TURTLES = 40              # 安全のための上限(カメ+卵)。普段は餌の量で頭打ちになる
 HOUR = 3600.0
+TIME_SCALE = 24.0             # カメの時間の進み方: 実時間の1時間 = カメの24時間(1日)
+# 年齢・寿命・おなかのすき具合・眠気・卵・水草の育ち方・朝昼夕夜 は「カメの時間」で進む。
+# 泳ぐ速さ・息継ぎ・アニメーション・波・訪問者の来る間隔(サメ30分など)は実時間のまま。
 JUVENILE_AGE = 1 * HOUR       # これより若いと一番小さい姿
 ADULT_AGE = 5 * HOUR          # 大人になる年齢。寿命 12〜24 時間 → 1日に 1〜3 世代
 MATE_COOLDOWN = 2 * HOUR
@@ -71,16 +75,17 @@ PLANT_START = 32
 N_MEADOWS = 5                 # 水草が群生する藻場の数
 MEADOW_R = (26, 40)
 PLANT_MAX = 50
-PLANT_GROWTH = 0.00045        # 水草のロジスティック成長率(1/秒)
+PLANT_GROWTH = 0.00025        # 水草のロジスティック成長率(1/秒)
 PLANT_MIN = 0.08              # 食べ尽くされても根が残る量
-PLANT_EDIBLE = 0.18           # これより少ない水草は食べられない(根からの再生を待つ)
+PLANT_EDIBLE = 0.55           # これより小さい株は食べない(半分の大きさから広がれるので、藻場が再生できる)
+MEADOW_MAX = 12               # ひとつの藻場の株の数の上限(海じゅうが1つの藻場にならないように)
 PLANT_BASE = 0.00003           # 根からの再生(1/秒)
 PLANT_BITE = 0.12             # ひとくち(小さくして、少しずつ減るのが見えるように)
-EAT_TIME = 0.8                # ひとくちにかかる時間(もぐもぐ)
+EAT_TIME = 1.2                # ひとくちにかかる時間(もぐもぐ)
 PLANT_SCARS = 3              # 根元まで食べられるのがこの回数続くと枯れる(食べ過ぎで藻場が消える)
 PLANT_HEAL = 20 * 60         # これだけ食べられなければ、傷が1つ治る
-SPROUT_GAP = (300, 600)       # ひとりでに芽が出る間隔(秒)。食べられなければ育って新しい藻場になる
-PLANT_SPREAD = 1 / 120.0       # 茂った水草がすぐ隣に広がる確率(1/秒)→ 群生する
+SPROUT_GAP = (2 * 3600, 4 * 3600)  # ひとりでに芽が出る間隔(カメの時間)。食べられなければ育って新しい藻場になる
+PLANT_SPREAD = 1 / 60.0        # 茂った水草がすぐ隣に広がる確率(1/秒)→ 群生する
 JELLY_INTERVAL = 180.0
 JELLY_MAX = 5
 JELLY_DROP_MAX = 12
@@ -107,15 +112,15 @@ FISH_PER_SCHOOL = 6
 FRIEND_AFF = 1.0              # この親しさ以上で友達
 
 BREATH_GAP = (180, 480)
-SLEEP_METAB = 0.12            # 眠っている間の代謝(起きている時の割合)。満腹なら一晩眠れる
+SLEEP_METAB = 0.08            # 眠っている間の代謝(起きている時の割合)。満腹なら一晩眠れる
 BREATH_TIME = 3.0
 PET_STROKE = 60.0
 
 SUNRISE = 4.6                 # 夏の日のイメージ(4:36)
 SUNSET = 18.9                 # (18:54)
 
-OFFLINE_STEP = 60.0
-OFFLINE_MAX = 7 * 24 * 3600
+OFFLINE_STEP = 600.0          # 留守中の計算の刻み(カメの時間で10分)
+OFFLINE_MAX = 30 * 24 * 3600  # 留守中に進めるのはカメの時間で最大30日(実時間で30時間)
 HISTORY_DT = 20.0
 HISTORY_LEN = 60
 AUTOSAVE_SEC = 300
@@ -274,6 +279,21 @@ PHASE_MSG = {
 }
 
 
+def turtle_clock(real_ts):
+    """実時刻 → カメの時刻(UNIX時間の形)。毎時0分がカメの0:00、30分が正午。"""
+    lt = time.localtime(real_ts)
+    sec = lt.tm_hour * 3600 + lt.tm_min * 60 + lt.tm_sec + (real_ts % 1)
+    midnight = real_ts - sec
+    return midnight + (sec * TIME_SCALE) % 86400
+
+
+def real_for_turtle(day_ts, hour, minute=0):
+    """テスト用: その日のうち、カメの時刻が hour:minute になる実時刻。"""
+    lt = time.localtime(day_ts)
+    midnight = day_ts - (lt.tm_hour * 3600 + lt.tm_min * 60 + lt.tm_sec)
+    return midnight + (hour * 3600 + minute * 60) / TIME_SCALE
+
+
 def sun_times(ts=None):
     """日の出・日の入り(時)。夏の日をイメージした固定の時刻。"""
     return SUNRISE, SUNSET
@@ -394,7 +414,7 @@ class Turtle:
 
     @property
     def lifespan(self):
-        return (12 + 12 * self.g["life"]) * HOUR * (1 + 0.2 * self.extra)
+        return (20 + 16 * self.g["life"]) * HOUR * (1 + 0.2 * self.extra)
 
     @property
     def metab(self):
@@ -633,6 +653,7 @@ class World:
         self.next_meadow = 0
         self.meadow_changed = False
         self.meadow_t = 5.0
+        self.eaten_plants = 0
         self.sprout_t = random.uniform(*SPROUT_GAP)
         self.schools = []
         self.fish = []
@@ -645,8 +666,9 @@ class World:
         self.waves = [Wave(self, first=True) for _ in range(N_WAVES)]
         self.big_wave = None
         self.big_t = random.uniform(*BIG_WAVE_GAP)
-        self.clock = time.time    # テストでは差し替える
-        self.phase, self.night, self.tint, self.hour = daylight(self.clock())
+        self.clock = time.time    # テストでは差し替える(実時刻)
+        self.bio_time = 0.0       # カメの時間の累計(秒)
+        self.phase, self.night, self.tint, self.hour = daylight(turtle_clock(self.clock()))
         self.now_ts = self.clock()
         self.phase_msg = None
         self.fx = []              # 描画側への演出 (種類, x, y)
@@ -836,21 +858,23 @@ class World:
     # ---- 1フレーム
     def step(self, dt):
         dt = min(dt, 0.5)
+        bdt = dt * TIME_SCALE                 # カメの時間
         self.time += dt
-        self.update_daylight(self.clock())
-        self._grow_plants(dt)
+        self.bio_time += bdt
+        self.update_daylight(turtle_clock(self.clock()))
+        self._grow_plants(bdt, dt)
         self._jellies(dt)
         self._waves(dt)
         self._fish_step(dt)
         self._visitors_step(dt)
         self._shark_step(dt)
-        self._hatch(dt)
+        self._hatch(bdt)
         alive = self.alive()
         self._pop = len(alive) + len(self.eggs)
         self.by_id = {t.id: t for t in alive}
         self._neighbors(alive, dt)
         for t in list(self.turtles):
-            self._update_turtle(t, dt)
+            self._update_turtle(t, dt, bdt)
         self._pairs(alive, dt)
         self._decompose()
         if not self.alive() and not self.eggs:
@@ -859,7 +883,9 @@ class World:
         self._record(dt)
 
     # ---- 生態系
-    def _grow_plants(self, dt):
+    def _grow_plants(self, dt, real_dt=None):
+        """dt はカメの時間。"""
+        real_dt = dt / TIME_SCALE if real_dt is None else real_dt
         new, dead = [], []
         for p in self.plants:
             p.b += (PLANT_GROWTH * p.b + PLANT_BASE) * (1 - p.b) * dt
@@ -868,12 +894,12 @@ class World:
             if p.scars >= PLANT_SCARS or p.age > p.life:       # 食べられ過ぎ・寿命で枯れる
                 dead.append(p)
                 continue
-            if p.scars and self.time - p.scar_t > PLANT_HEAL:
+            if p.scars and self.bio_time - p.scar_t > PLANT_HEAL:
                 p.scars -= 1
                 p.scar_t = self.time
-            if (p.b > 0.8 and len(self.plants) + len(new) < PLANT_MAX
+            m = self.meadows.get(p.m)
+            if (p.b > 0.5 and len(self.plants) + len(new) < PLANT_MAX and (m is None or m["n"] < MEADOW_MAX)
                     and random.random() < min(1.0, dt * PLANT_SPREAD)):
-                m = self.meadows.get(p.m)
                 for _ in range(6):                           # すぐ隣へ。藻場の「進む向き」に広がりやすい
                     a = (m["dir"] + random.gauss(0, 1.1)) if m and random.random() < 0.65 else random.uniform(0, math.tau)
                     d = random.uniform(10, 17)
@@ -881,7 +907,9 @@ class World:
                     crowd = sum(1 for q in self.plants if (q.x - x) ** 2 + (q.y - y) ** 2 < 22 * 22)
                     if crowd < 5 and self._free_spot(x, y) and all((q.x - x) ** 2 + (q.y - y) ** 2 > 100 for q in new):
                         new.append(Plant(x, y, 0.12, p.m))
-                        p.b -= 0.15
+                        p.b -= 0.1
+                        if m:
+                            m["n"] += 1
                         break
         if dead:
             self.plants = [p for p in self.plants if p not in dead]
@@ -895,7 +923,7 @@ class World:
                     if self._free_spot(x, y, 25):
                         self.plants.append(Plant(x, y, 0.12, self.new_meadow(x, y)))
                         break
-        self.meadow_t -= dt
+        self.meadow_t -= real_dt
         if self.meadow_t <= 0 or dead:
             self.meadow_t = 5.0
             self._update_meadows()
@@ -1374,7 +1402,9 @@ class World:
                 if v >= FRIEND_AFF and i in self.by_id and i != t.partner]
 
     # ---- 個体の行動
-    def _update_turtle(self, t, dt):
+    def _update_turtle(self, t, dt, bdt=None):
+        """dt は実時間(動き・表情)、bdt はカメの時間(年齢・おなか・眠気)。"""
+        bdt = dt * TIME_SCALE if bdt is None else bdt
         t.anim += dt
         if t.emote_t > 0:
             t.emote_t -= dt
@@ -1386,16 +1416,16 @@ class World:
             t.vy *= 0.9
             return
 
-        t.age += dt
-        t.mate_cd -= dt
+        t.age += bdt
+        t.mate_cd -= bdt
         t.eat_cd -= dt
-        t.clean_cd -= dt
+        t.clean_cd -= bdt
         t.joy = max(0.0, t.joy - 0.015 * dt)
         t.annoy = max(0.0, t.annoy - 0.02 * dt)
         sleeping = t.state == "sleep"
         t.air -= dt * (0.4 if sleeping else 1.0)
-        t.energy -= t.metab * dt * (SLEEP_METAB if sleeping else 1.0)
-        t.fatigue += (-dt / t.sleep_len) if sleeping else (dt / t.awake_len)
+        t.energy -= t.metab * bdt * (SLEEP_METAB if sleeping else 1.0)
+        t.fatigue += (-bdt / t.sleep_len) if sleeping else (bdt / t.awake_len)
         if t.energy <= 0:
             self._kill(t, "starvation")
             return
@@ -1489,7 +1519,8 @@ class World:
         prev = t.state
         t.state = "swim"
         sleepy = t.fatigue + t.night_pull(self.night) > 1 and t.energy > 0.15
-        hungry_line = t.eat_below + self.appetite_shift()
+        # 株を丸ごと食べるので、ちゃんとお腹がすいてから。夕方は寝る前にしっかり食べる
+        hungry_line = min(0.92 if 15 <= self.hour < 20 else 0.7, t.eat_below + self.appetite_shift())
         if t.clutch and self.night > 0.5:
             t.state = "nest"                                  # 産卵は夜(ウミガメの習性)
             if t.nest is None:
@@ -1571,11 +1602,12 @@ class World:
             items += self.jellies
         for f in items:
             if f.kind == "plant":
-                gain = min(PLANT_BITE, f.b - PLANT_MIN) * (1.5 if t.herbivore else 0.9)
+                gain = f.b * (1.5 if t.herbivore else 0.9)       # 株を丸ごと食べる
             else:
                 gain = JELLY_ENERGY
             d = math.hypot(f.x - t.x, f.y - t.y) + 20
-            s = d / max(gain, 0.01)
+            need = 1.0 - t.energy
+            s = d / max(min(gain, need + 0.1), 0.01)            # 食べすぎない大きさを選ぶ
             if s < bs:
                 best, bs = f, s
         return best
@@ -1590,14 +1622,12 @@ class World:
             if f.b < PLANT_EDIBLE:
                 t.food = None
                 return
-            bite = min(PLANT_BITE, f.b - PLANT_MIN)
-            f.b -= bite
-            f.bitten = self.time
-            self.fx.append(("leaf", f.x, f.y))            # ちぎれた葉が舞う
-            if f.b <= PLANT_MIN + 0.02:
-                f.scars += 1
-                f.scar_t = self.time
-            t.energy += bite * (1.5 if t.herbivore else 0.9)
+            f.gone = True                                   # クラゲと同じく、食べたら消える
+            self.plants = [q for q in self.plants if q is not f]
+            self.fx += [("leaf", f.x, f.y), ("leaf", f.x, f.y), ("gulp", f.x, f.y)]
+            t.energy += f.b * (1.5 if t.herbivore else 0.9)
+            self.eaten_plants += 1
+            self.meadow_t = min(self.meadow_t, 0.5)
         else:
             f.gone = True
             t.energy += JELLY_ENERGY
@@ -1605,7 +1635,7 @@ class World:
         t.energy = min(1.0, t.energy)
         t.joy = min(1.0, t.joy + 0.06)
         t.eat_cd = EAT_TIME
-        t.food_t = 2.0 if f.kind == "plant" and f.b > PLANT_EDIBLE else 0.0   # 同じ株をもう一口
+        t.food_t = 0.0
         if t.energy > 0.92:
             t.say("flower", 1.2)                    # おなかいっぱい
         elif random.random() < 0.3:
@@ -1802,6 +1832,9 @@ class World:
             t.heading = math.atan2(dy, dx) if (dx or dy) else t.heading
         elif dx or dy:
             t.heading = math.atan2(dy, dx)
+        chewing = t.eat_cd > 0 and st in ("swim", "food")
+        if chewing:
+            mul = 0.0                                       # 噛んでいる間は止まる
         if not water:
             mul *= 0.35
         elif st not in ("flee_shark", "nest", "play"):
@@ -1834,7 +1867,7 @@ class World:
         if eating:                                      # 食べている間は食べ物の方を向いたまま
             a = math.atan2(t.food.y - t.y, t.food.x - t.x)
             t.dir = (1 if math.cos(a) > 0 else 3) if abs(math.cos(a)) > abs(math.sin(a)) else (2 if math.sin(a) > 0 else 0)
-        elif st != "dance" and abs(t.vx) + abs(t.vy) > 2:
+        elif st != "dance" and not chewing and abs(t.vx) + abs(t.vy) > 2:
             if abs(t.vx) > abs(t.vy):
                 t.dir = 1 if t.vx > 0 else 3
             else:
@@ -2088,10 +2121,12 @@ class World:
     # ---- 留守中の時間経過(1分刻みでまとめて計算)
     def advance_offline(self, seconds, start=None):
         """start: 閉じた時刻(UNIX時間)。昼夜をその時刻から再現する。"""
-        seconds = min(max(0.0, seconds), OFFLINE_MAX)
         if start is None:
             start = self.clock() - seconds
-        self._off_ts = start
+        self._off_ts = start                                  # 実時刻
+        seconds = min(max(0.0, seconds) * TIME_SCALE, OFFLINE_MAX)   # カメの時間に直す
+        if seconds >= OFFLINE_MAX:                            # 長すぎる留守は最後の30日分だけ計算する
+            self._off_ts = self.clock() - OFFLINE_MAX / TIME_SCALE
         b0, d0, l0 = self.births, self.deaths, self.laid
         steps = int(seconds // OFFLINE_STEP)
         rest = seconds - steps * OFFLINE_STEP
@@ -2102,7 +2137,7 @@ class World:
         self.jellies = []
         self.shark = None
         self.visitors = []
-        self.update_daylight(self.clock(), log=False)
+        self.update_daylight(turtle_clock(self.clock()), log=False)
         for t in self.turtles:
             t.emote, t.food, t.target, t.surf, t.vis, t.goal = None, None, None, None, None, None
             if t.state not in ("sleep", "dead"):
@@ -2111,11 +2146,13 @@ class World:
         return self.births - b0, self.deaths - d0, self.laid - l0
 
     def _offline_step(self, dt):
-        self.time += dt
-        self._off_ts = getattr(self, "_off_ts", self.clock()) + dt
-        self.update_daylight(self._off_ts, log=False)
+        """dt はカメの時間。"""
+        self.time += dt / TIME_SCALE
+        self.bio_time += dt
+        self._off_ts = getattr(self, "_off_ts", self.clock()) + dt / TIME_SCALE
+        self.update_daylight(turtle_clock(self._off_ts), log=False)
         self._grow_plants(dt)
-        jelly_in = min(JELLY_MAX, dt / JELLY_INTERVAL)
+        jelly_in = min(JELLY_MAX, dt / TIME_SCALE / JELLY_INTERVAL)
         alive = self.alive()
         self._pop = len(alive) + len(self.eggs)
         self.by_id = {t.id: t for t in alive}
@@ -2129,7 +2166,7 @@ class World:
             t.joy = max(0.0, t.joy - 0.015 * dt)
             t.annoy = max(0.0, t.annoy - 0.02 * dt)
             tries = 0
-            while t.energy < t.eat_below + shift and tries < 6:
+            while t.energy < min(0.92 if 15 <= self.hour < 20 else 0.7, t.eat_below + shift) and tries < 6:
                 tries += 1
                 if not t.herbivore and (jelly_in >= 1 or random.random() < jelly_in):
                     jelly_in = max(0.0, jelly_in - 1)
@@ -2138,18 +2175,14 @@ class World:
                 p = max(self.plants, key=lambda p: p.b, default=None)
                 if p is None or p.b < PLANT_EDIBLE:
                     break
-                bite = min(PLANT_BITE, p.b - PLANT_MIN)
-                p.b -= bite
-                if p.b <= PLANT_MIN + 0.02:
-                    p.scars += 1
-                    p.scar_t = self.time
-                t.energy += bite * (1.5 if t.herbivore else 0.9)
+                self.plants.remove(p)                       # 株を丸ごと食べる
+                t.energy += p.b * (1.5 if t.herbivore else 0.9)
             t.energy = min(1.0, t.energy)
             if t.energy <= 0:
                 self._kill(t, "starvation")
             elif t.age >= t.lifespan:
                 self._kill(t, "old age")
-        if random.random() < dt / (sum(SHARK_GAP) / 2) * 0.12:      # サメに食べられるのはまれ
+        if random.random() < dt / TIME_SCALE / (sum(SHARK_GAP) / 2) * 0.12:   # サメに食べられるのはまれ
             big = [t for t in self.turtles if t.alive and t.scale >= SHARK_PREY_SCALE]
             if big:
                 self._kill(random.choice(big), "a shark attack")
@@ -2194,7 +2227,8 @@ class World:
                 "births": self.births, "deaths": self.deaths, "laid": self.laid,
                 "merges": self.merges, "splits": self.splits, "max_gen": self.max_gen,
                 "n_lineages": self.n_lineages, "gene_pool": self.gene_pool,
-                "events": self.events, "history": self.history, "settings": self.settings}
+                "events": self.events, "history": self.history, "settings": self.settings,
+                "bio_time": self.bio_time}
 
     @classmethod
     def from_dict(cls, d):
@@ -2236,6 +2270,7 @@ class World:
         wd.events = [tuple(e) for e in d.get("events", []) if len(e) == 3]
         wd.history = [tuple(h) for h in d.get("history", [])]
         wd.settings.update(d.get("settings", {}))
+        wd.bio_time = d.get("bio_time", 0.0)
         wd.by_id = {t.id: t for t in wd.turtles}
         return wd
 
@@ -3101,8 +3136,8 @@ class App:
         else:
             self.world = world
             b, d, l = world.advance_offline(away)
-            self.banner = ("While you were away: %s passed\nBorn %d   Died %d   Eggs laid %d"
-                           % (fmt_dur(away), b, d, l))
+            self.banner = ("While you were away: %s passed (%s in turtle time)\nBorn %d   Died %d   Eggs laid %d"
+                           % (fmt_dur(away), fmt_dur(min(away * TIME_SCALE, OFFLINE_MAX)), b, d, l))
         self.banner_t = 8.0
 
         c = self.canvas
@@ -3447,6 +3482,11 @@ class App:
             self.fx_items.append([it2, kind, x, y, 0.0, 0.35, 0, 0])
             self.order_dirty = True
             return
+        if kind == "gulp":                          # 株を丸ごと食べた: 緑の輪
+            it = c.create_oval(x, y, x, y, outline="#5ee08a", width=2, tags="fx")
+            self.fx_items.append([it, "pop", x, y, 0.0, 0.5])
+            self.order_dirty = True
+            return
         if kind == "pop":
             it = c.create_oval(x, y, x, y, outline="#ffc4ee", width=2, tags="fx")
             self.fx_items.append([it, kind, x, y, 0.0, 0.4])
@@ -3671,7 +3711,7 @@ class App:
             return (t.dir, int(t.anim / 0.12) % 2, "belly" if int(t.anim / 0.24) % 2 else "normal", t.scale)
         if t.state == "breathe":
             return (t.dir, 0, "breathe", t.scale)
-        if t.state == "food" and t.eat_cd > 0:
+        if t.eat_cd > 0 and t.state in ("food", "swim"):      # もぐもぐ(食べ終わってもしばらく噛む)
             return (t.dir, int(t.anim / 0.14) % 2, "eat", t.scale)
         if t.state == "cleaning":                       # 気持ちよさそうに、ひれをゆっくり
             return (t.dir, int(t.anim / 0.9) % 2, "normal", t.scale)
@@ -3819,9 +3859,10 @@ class App:
             if w.shark:
                 vis.append("SHARK!")
             c.itemconfigure(self.hud, text=(
-                "%s %s   Turtles %d (F%d M%d, herb %d / omni %d)   Eggs %d   Gen %d\n"
+                "Day %d  %s %s   Turtles %d (F%d M%d, herb %d / omni %d)   Eggs %d   Gen %d\n"
                 "Seaweed %d   Jellyfish %d   Born %d   Died %d   Merged %d   Split %d\n%s"
-                % (time.strftime("%H:%M", time.localtime(w.now_ts)), w.phase, len(alive), nf,
+                % (int(w.bio_time // 86400) + 1, time.strftime("%H:%M", time.localtime(w.now_ts)), w.phase,
+                   len(alive), nf,
                    len(alive) - nf, herb, len(alive) - herb, len(w.eggs), w.max_gen,
                    len(w.plants), len(w.jellies), w.births, w.deaths, w.merges, w.splits,
                    ("Visitors: " + ", ".join(vis)) if vis else "")))

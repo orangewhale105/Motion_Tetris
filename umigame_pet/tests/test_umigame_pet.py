@@ -39,20 +39,33 @@ class TestGenome(unittest.TestCase):
         self.assertEqual(up.lineage_name(26), "AA")
 
 
-def at(month, day, hour, minute=0):
+def clock_at(month, day, hour, minute=0):
     return time.mktime((2026, month, day, hour, minute, 0, 0, 0, -1))
+
+
+def at(month, day, hour, minute=0):
+    """カメの時刻が hour:minute になる実時刻(1時間 = カメの1日)。"""
+    return up.real_for_turtle(clock_at(month, day, 0), hour, minute)
 
 
 class TestDaylight(unittest.TestCase):
     def test_phases(self):
-        self.assertEqual(up.daylight(at(6, 21, 12))[0], "Daytime")
-        self.assertEqual(up.daylight(at(6, 21, 0))[0], "Night")
-        self.assertEqual(up.daylight(at(6, 21, 4, 40))[0], "Sunrise")      # 夏の日のイメージ
-        self.assertEqual(up.daylight(at(12, 21, 4, 40))[0], "Sunrise")     # 季節によらない
-        self.assertEqual(up.daylight(at(12, 21, 18, 30))[0], "Sunset")
-        self.assertEqual(up.daylight(at(6, 21, 19, 30))[0], "Dusk")
-        self.assertGreater(up.daylight(at(6, 21, 0))[1], 0.95)
-        self.assertLess(up.daylight(at(6, 21, 12))[1], 0.01)
+        self.assertEqual(up.daylight(clock_at(6, 21, 12))[0], "Daytime")
+        self.assertEqual(up.daylight(clock_at(6, 21, 0))[0], "Night")
+        self.assertEqual(up.daylight(clock_at(6, 21, 4, 40))[0], "Sunrise")      # 夏の日のイメージ
+        self.assertEqual(up.daylight(clock_at(12, 21, 4, 40))[0], "Sunrise")     # 季節によらない
+        self.assertEqual(up.daylight(clock_at(12, 21, 18, 30))[0], "Sunset")
+        self.assertEqual(up.daylight(clock_at(6, 21, 19, 30))[0], "Dusk")
+        self.assertGreater(up.daylight(clock_at(6, 21, 0))[1], 0.95)
+        self.assertLess(up.daylight(clock_at(6, 21, 12))[1], 0.01)
+
+    def test_turtle_clock(self):
+        """実時間の1時間 = カメの1日。毎時0分が0:00、30分が正午。"""
+        base = clock_at(6, 21, 10, 0)
+        self.assertEqual(time.localtime(up.turtle_clock(base)).tm_hour, 0)
+        self.assertEqual(time.localtime(up.turtle_clock(base + 30 * 60)).tm_hour, 12)
+        self.assertEqual(time.localtime(up.turtle_clock(base + 45 * 60)).tm_hour, 18)
+        self.assertEqual(time.localtime(up.turtle_clock(at(6, 21, 7, 30))).tm_hour, 7)
 
     def test_night_sleep_and_nesting(self):
         random.seed(8)
@@ -91,7 +104,7 @@ class TestWorld(unittest.TestCase):
         w.seed()
         for t in w.turtles:
             t.mate_cd = 0
-        for i in range(int(12 * 3600 / 0.5)):
+        for i in range(int(0.75 * 3600 / 0.5)):      # 実時間45分 = カメの18時間(夕方→翌朝)
             if i % 50 == 0:
                 w.cursor = (random.uniform(0, w.w), random.uniform(0, w.h))
                 w.cursor_speed = random.choice([0, 100, 1500])
@@ -175,10 +188,12 @@ class TestWorld(unittest.TestCase):
             t.energy, t.fatigue = 0.3, 0.0
             w.turtles.append(t)
         b0 = sum(p.b for p in w.plants)
-        for _ in range(int(2 * 3600 / 0.5)):
+        low = b0
+        for _ in range(int(0.5 * 3600 / 0.5)):        # 実時間30分 = カメの12時間
             w.step(0.5)
-        self.assertLess(sum(p.b for p in w.plants), b0)
-        self.assertGreater(w.deaths, 0)
+            low = min(low, sum(p.b for p in w.plants))
+        self.assertLess(low, b0 * 0.6)                 # 食べ尽くされて減る
+        self.assertGreater(w.deaths, 5)                # 餓死が起きる
 
     def test_offline_and_save_load(self):
         random.seed(3)
@@ -323,7 +338,7 @@ class TestNewFeatures(unittest.TestCase):
         w.vis_t = {k: 1e9 for k in w.vis_t}
         for _ in range(6000):                             # 一緒にいると友達になる
             for t in ts:
-                t.air, t.energy = 999, 1.0
+                t.air, t.energy, t.fatigue = 999, 1.0, 0.0
             w.step(0.1)
         self.assertTrue(any(w.friends(t) for t in ts))
         for kind in ("manta", "hermit", "coconut"):
@@ -345,7 +360,7 @@ class TestNewFeatures(unittest.TestCase):
         self.assertEqual(w.births, 1)
 
     def test_generations_per_day(self):
-        """1日(実時間)でおよそ 1〜3 世代。"""
+        """カメの1日(実時間1時間)でおよそ 1〜3 世代。"""
         random.seed(15)
         w = up.World()
         base = at(6, 21, 12, 0)
@@ -353,7 +368,7 @@ class TestNewFeatures(unittest.TestCase):
         w.update_daylight(base, log=False)
         w.seed()
         g0 = w.max_gen
-        w.advance_offline(3 * 24 * 3600, start=base - 3 * 24 * 3600)
+        w.advance_offline(3 * 3600, start=base - 3 * 3600)   # 実時間3時間 = カメの3日
         per_day = (w.max_gen - g0) / 3.0
         self.assertGreaterEqual(per_day, 0.7)
         self.assertLessEqual(per_day, 4.0)
@@ -432,7 +447,8 @@ class TestSeaweedAndVisitors(unittest.TestCase):
 
 
 class TestAnimations(unittest.TestCase):
-    def test_plant_shrinks_when_eaten(self):
+    def test_plant_disappears_when_eaten(self):
+        """クラゲと同じく、水草も食べたら消える(もぐもぐしてから)。"""
         random.seed(30)
         w = up.World()
         w.clock = lambda: at(6, 21, 8, 0)
@@ -445,18 +461,21 @@ class TestAnimations(unittest.TestCase):
         t.g["diet"] = 0.1
         t.energy, t.air, t.fatigue = 0.2, 999, 0
         w.turtles, w.plants = [t], [p]
-        levels, eat_frames = [up.plant_level(p.b)], set()
-        for _ in range(400):
+        chew, fx = set(), set()
+        for _ in range(300):
             w.step(0.1)
             t.air = 999
-            levels.append(up.plant_level(p.b))
-            if t.state == "food" and t.eat_cd > 0:
-                eat_frames.add(int(t.anim / 0.14) % 2)
-        self.assertLess(min(levels), levels[0] - 2)          # 何口も食べて段階的に小さくなる
-        self.assertEqual(eat_frames, {0, 1})                  # 口を開け閉め
-        self.assertTrue(any(f[0] == "leaf" for f in w.fx) or True)
-        for lv in range(9):
-            self.assertTrue(up.plant_rows(lv))
+            fx.update(f[0] for f in w.fx)
+            if t.eat_cd > 0:
+                chew.add(int(t.anim / 0.14) % 2)
+            w.fx.clear()
+            if p not in w.plants and t.eat_cd <= 0:
+                break
+        self.assertNotIn(p, w.plants)
+        self.assertGreater(t.energy, 0.9)
+        self.assertEqual(chew, {0, 1})                 # 口を開け閉め
+        self.assertIn("leaf", fx)
+        self.assertIn("gulp", fx)
         self.assertEqual(len(up.turtle_pixels(t.g, 1, "eat")), 12)
 
     def test_cleaning_fish_peck(self):
