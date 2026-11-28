@@ -60,11 +60,12 @@ class TestDaylight(unittest.TestCase):
         self.assertLess(up.daylight(clock_at(6, 21, 12))[1], 0.01)
 
     def test_turtle_clock(self):
-        """実時間の1時間 = カメの1日。毎時0分が0:00、30分が正午。"""
+        """実時間の40分 = カメの1日。10:00 が0:00、20分後が正午、30分後が18時、40分後がまた0:00。"""
         base = clock_at(6, 21, 10, 0)
         self.assertEqual(time.localtime(up.turtle_clock(base)).tm_hour, 0)
-        self.assertEqual(time.localtime(up.turtle_clock(base + 30 * 60)).tm_hour, 12)
-        self.assertEqual(time.localtime(up.turtle_clock(base + 45 * 60)).tm_hour, 18)
+        self.assertEqual(time.localtime(up.turtle_clock(base + 20 * 60)).tm_hour, 12)
+        self.assertEqual(time.localtime(up.turtle_clock(base + 30 * 60)).tm_hour, 18)
+        self.assertEqual(time.localtime(up.turtle_clock(base + 40 * 60)).tm_hour, 0)
         self.assertEqual(time.localtime(up.turtle_clock(at(6, 21, 7, 30))).tm_hour, 7)
 
     def test_night_sleep_and_nesting(self):
@@ -338,7 +339,7 @@ class TestNewFeatures(unittest.TestCase):
         w.vis_t = {k: 1e9 for k in w.vis_t}
         for _ in range(6000):                             # 一緒にいると友達になる
             for t in ts:
-                t.air, t.energy, t.fatigue = 999, 1.0, 0.0
+                t.air, t.energy, t.fatigue, t.clean_cd = 999, 1.0, 0.0, 1e9
             w.step(0.1)
         self.assertTrue(any(w.friends(t) for t in ts))
         for kind in ("manta", "hermit", "coconut"):
@@ -603,8 +604,7 @@ class TestLifeAndNight(unittest.TestCase):
         random.seed(43)
         w = self.make()
         w.turtles = [up.Turtle(up.random_genome(), 100 + i * 30, 120, age=up.ADULT_AGE, sex="M") for i in range(4)]
-        w.immigrant_t = 0.0
-        w._immigrants(0.1)
+        w._immigrants(0.1, force=True)
         newcomer = w.turtles[-1]
         self.assertEqual(newcomer.sex, "F")
         self.assertEqual(newcomer.parents, "arrived from far away")
@@ -729,8 +729,7 @@ class TestV6(unittest.TestCase):
         random.seed(53)
         w = self.make(10)
         w.turtles = [up.Turtle(up.random_genome(), 100, 100, age=up.ADULT_AGE, sex="M")]
-        w.immigrant_t = 0
-        w._immigrants(0.1)
+        w._immigrants(0.1, force=True)
         newc = [t for t in w.turtles if t.origin != "native"]
         self.assertTrue(newc)
         info = "\n".join(w.turtle_info(newc[0]))
@@ -753,7 +752,7 @@ class TestV6(unittest.TestCase):
         for _ in range(200):
             w._coral_step(up.HOUR)
         self.assertGreater(math.hypot(coral.x - x0, coral.y - y0), 3)
-        self.assertEqual(sum(r.kind == "rock" for r in w.reefs), 5)
+        self.assertEqual(sum(r.kind == "rock" for r in w.reefs), 4)
         w.turtles = [up.Turtle(up.random_genome(), 100 + i, 100, age=up.ADULT_AGE) for i in range(5)]
         w.trend_t = -1e9
         w._trends()
@@ -885,6 +884,174 @@ class TestSound(unittest.TestCase):
         self.assertTrue(w2.settings["fx"])
         self.assertEqual(w2.settings["fx_vol"], 3)
         self.assertEqual(w2.settings["waves_vol"], 6)
+
+
+class TestV7(unittest.TestCase):
+    def make(self, hour=12):
+        w = up.World()
+        w.clock = lambda: at(6, 21, hour, 0)
+        w.update_daylight(w.clock(), log=False)
+        w.seed_reefs()
+        w.seed_plants()
+        return w
+
+    def test_forty_minutes_a_day(self):
+        self.assertAlmostEqual(up.TIME_SCALE * 40 * 60, up.DAY)
+        self.assertAlmostEqual(up.LAY_TIME * up.TIME_SCALE, 1.5 * up.HOUR)   # 産卵は約1時間半
+
+    def test_no_complementary_colours(self):
+        """模様の色相は地の色に近い(補色にならない)。まれな色は真珠色か金色。"""
+        import colorsys
+        random.seed(70)
+        for _ in range(500):
+            g = up.random_genome()
+            cols = up.shell_colors(g)
+            hs = []
+            for c in cols[:3]:
+                r, gg, b = (int(c[i:i + 2], 16) / 255 for i in (1, 3, 5))
+                h, l, sat = colorsys.rgb_to_hls(r, gg, b)
+                hs.append((h, sat))
+            if not up.is_dark(g) and hs[0][1] > 0.1 and hs[2][1] > 0.1:
+                d = abs(hs[0][0] - hs[2][0])
+                self.assertLess(min(d, 1 - d), 0.12)
+            if up.is_dark(g):
+                self.assertIn(up.color_name(g), ("pearl white", "golden"))
+
+    def test_rocks_and_corals_at_start(self):
+        random.seed(71)
+        w = self.make()
+        rocks = sorted(len(r.parts) for r in w.reefs if r.kind == "rock")
+        self.assertEqual(rocks, [3, 3, 5, 8])                     # 大・中・小と、沖合の小
+        self.assertTrue(any(r.y < w.land_top * 0.25 for r in w.reefs if r.kind == "rock"))
+        corals = [r for r in w.reefs if r.kind == "coral"]
+        self.assertEqual(len(corals), 4)
+        n_parts = sum(len(r.parts) for r in corals)
+        self.assertAlmostEqual(len(w.fish), sum(w.fish_target(r) for r in corals))
+        self.assertGreater(len(w.fish), n_parts * 0.5)
+
+    def test_corals_and_fish_change(self):
+        random.seed(72)
+        w = self.make()
+        counts = set()
+        for _ in range(24 * 40):
+            w._coral_step(up.HOUR)
+            corals = [r for r in w.reefs if r.kind == "coral"]
+            counts.add(len(corals))
+            self.assertLessEqual(len(w.fish), sum(w.fish_target(r) for r in corals) + len(w.schools) + 2)
+        self.assertGreater(len(counts), 1)                         # サンゴ礁の数が変わる
+
+    def test_jellies_breed_and_can_die_out(self):
+        random.seed(73)
+        w = self.make()
+        w.jellies = [up.Jelly(300, 150, 3) for _ in range(3)]
+        for _ in range(2000):
+            w._jellies(0.5, 0.5 * up.TIME_SCALE)
+        self.assertGreater(len(w.jellies), 6)                      # ふえる
+        self.assertLessEqual(len(w.jellies), up.JELLY_K + 2)
+        for j in w.jellies:
+            self.assertTrue(0 <= j.x <= w.w)                       # 海から出ていかない
+        w.jellies = []
+        w._jellies(0.5)
+        self.assertEqual(w.jellies, [])                            # 外からは来ない(人が足す)
+
+    def test_immigrants_young_gen1_and_rate(self):
+        random.seed(74)
+        w = self.make()
+        w.max_gen = 7
+        w.turtles = []
+        w._immigrants(1.0, force=True)
+        t = w.turtles[0]
+        self.assertEqual(t.generation, 1)
+        self.assertTrue(up.ADULT_AGE * 0.69 <= t.age <= up.ADULT_AGE * 1.16)
+        arrivals = []                                                # 絶滅したら 1 日ほどで 1 匹
+        for _ in range(200):
+            w.turtles, n, days = [], 0, 0.0
+            while not w.turtles:
+                w._immigrants(600.0)
+                days += 600.0 / up.DAY
+            arrivals.append(days)
+        self.assertTrue(0.6 < sum(arrivals) / len(arrivals) < 1.5)
+
+    def test_crisis_kills_and_fatal(self):
+        random.seed(75)
+        w = self.make()
+        w.turtles = [up.Turtle(up.random_genome(), 100 + i * 20, 120, age=up.ADULT_AGE) for i in range(10)]
+        w.start_crisis("epidemic")
+        n = len(w.alive())
+        self.assertTrue(0 < n < 10)
+        w.start_crisis("storm", fatal=True)
+        self.assertEqual(len(w.alive()), 0)
+        self.assertEqual(w.eggs, [])
+        self.assertTrue(any("CRISIS" in e[2] for e in w.events))
+        hits = 0                                                     # 平均 21 日に 1 度くらい
+        w.crisis_t = 0
+        w.start_crisis = lambda kind, fatal=False: None
+        w.turtles = [up.Turtle(up.random_genome(), 100, 120, age=up.ADULT_AGE)]
+        for _ in range(420):
+            w.crisis_t_before = w.crisis_t
+            w._crisis(up.DAY)
+            hits += w.crisis_t > w.crisis_t_before
+        self.assertTrue(10 <= hits <= 32)
+
+    def test_lay_only_at_night_window(self):
+        random.seed(76)
+        for hour, expect in ((21, True), (1, True), (5, False), (18, False)):
+            w = self.make(hour)
+            w.update_daylight(up.turtle_clock(w.clock()), log=False)
+            self.assertEqual(w.nest_time(), expect)
+
+    def test_hungry_turtle_eats_small_plants_and_wakes(self):
+        random.seed(77)
+        w = self.make(1)
+        t = up.Turtle(up.random_genome(), 300, 150, age=up.ADULT_AGE)
+        w.turtles = [t]
+        w.plants = [up.Plant(320, 160, 0.5, w.new_meadow(320, 160))]
+        t.energy = 0.9
+        self.assertIsNone(w._choose_food(t))
+        t.energy = 0.3
+        self.assertIsNotNone(w._choose_food(t))
+        t.energy, t.state, t.fatigue = 0.15, "sleep", 1.0
+        w._update_turtle(t, 0.1)
+        self.assertNotEqual(t.state, "sleep")
+
+    def test_memorial_heirs_are_three_closest(self):
+        random.seed(78)
+        w = self.make()
+        mom = up.Turtle(up.random_genome(), 100, 100, age=up.ADULT_AGE, sex="F")
+        mom.name, mom.killer, mom.cause = "Momo", None, "old age"
+        w.turtles = [mom]
+        w.by_id = {mom.id: mom}
+        kids = []
+        for i in range(6):
+            k = up.Turtle(up.mutate(mom.g, rate=0.1 * (i + 1)), 120 + i, 100)
+            w._born(k, mom.id, None)
+            w.turtles.append(k)
+            kids.append(k)
+        story = w.life_story(mom)
+        self.assertEqual(len(story["heirs"]), 3)
+        best = sorted(kids, key=lambda k: up.distance(k.g, mom.g))[:3]
+        self.assertEqual(story["heirs"], [k.id for k in best])
+
+    def test_emigration_when_seaweed_is_scarce(self):
+        random.seed(79)
+        w = self.make()
+        w.turtles = [up.Turtle(up.random_genome(), 100 + i * 20, 120, age=up.ADULT_AGE) for i in range(14)]
+        w.plants = w.plants[:3]
+        for _ in range(200):
+            w._emigrate(up.HOUR)
+        gone = [t for t in w.turtles if t.state == "depart"]
+        self.assertTrue(gone)
+        self.assertTrue(any("never to return" in e[2] for e in w.events))
+        t = gone[0]
+        for _ in range(400):
+            w._update_turtle(t, 0.1)
+        self.assertNotIn(t, w.turtles)                            # 二度と戻らない
+        self.assertNotIn(t.id, [x["id"] for x in w.to_dict()["turtles"]])
+        w2 = self.make()                                          # 海藻が十分なら旅立たない
+        w2.turtles = [up.Turtle(up.random_genome(), 100 + i * 20, 120, age=up.ADULT_AGE) for i in range(8)]
+        for _ in range(200):
+            w2._emigrate(up.HOUR)
+        self.assertFalse(any(t.state == "depart" for t in w2.turtles))
 
 
 if __name__ == "__main__":
