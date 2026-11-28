@@ -51,7 +51,7 @@ import string
 import sys
 import time
 
-VERSION = "7.1.0"
+VERSION = "7.2.0"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
@@ -63,18 +63,19 @@ TIME_SCALE = 36.0             # カメの時間の進み方: 実時間の40分 =
 JUVENILE_AGE = 6 * HOUR       # これより若いと一番小さい姿(カメの時間)
 ADULT_AGE = 20 * HOUR         # 大人になる年齢。寿命は平均 4〜5 日、最大 1 か月ほど(カメの時間)
 MATE_COOLDOWN = 10 * HOUR     # (旧版の互換用)
-FEMALE_MATE_GAP = 2.5 * 24 * HOUR   # メスが次に交尾するまで(本物のウミガメは数年に1度。1回の交尾で何度も産む)
-MALE_MATE_GAP = 1.2 * 24 * HOUR     # オスが次に交尾するまで
+FEMALE_MATE_GAP = 1.0 * 24 * HOUR   # メスが次に交尾するまで(本物のウミガメは数年に1度。1回の交尾で何度も産む)
+MALE_MATE_GAP = 0.8 * 24 * HOUR     # オスが次に交尾するまで
 CLUTCH_GAP = 20 * HOUR        # 1回の交尾の後、次の産卵までの間(精子をたくわえて、交尾なしで産む)
-COURT_CHANCE = 1 / 90.0       # 相手を探し始める確率(実時間1秒あたり)。のんびり過ごすのが基本
+MATING_HOURS = (6.0, 10.0)    # 交尾は朝だけ。1日に 1〜2 ペアまで
+COURT_CHANCE = 1 / 10.0       # 相手を探し始める確率(実時間1秒あたり)。のんびり過ごすのが基本
 EGG_TIME = 6 * HOUR           # 卵がかえるまで(その後、夜を待ってふ化)
 LAY_GAME = 1.5 * 3600         # 産卵にかかる時間(本物のウミガメに合わせて約1時間半、カメの時間)
 LAY_TIME = LAY_GAME / TIME_SCALE    # 同じ時間を実時間の秒で(穴を掘る → 涙を流しながら産む → 砂をかける)
 NEST_HOURS = (20.0, 3.0)      # 産卵は夜 20時〜翌3時(カメの時刻)
-MATING_TIME = 3.5             # 交尾のアニメーション(実時間の秒)
+MATING_TIME = 2.0             # 交尾(寄りそってハートが1つ出るだけ。実時間の秒)
 HATCH_SHAKE = 3.0             # 卵がゆれてから割れるまで(実時間の秒)
 DAY = 86400.0
-EGG_COST = 0.09               # 卵1個に母親が使う栄養
+EGG_COST = 0.05               # 卵1個に母親が使う栄養
 HATCH_ENERGY = 0.45           # 子ガメの最初の栄養
 MAX_SCALE = 6                 # ドットの拡大率の上限(合体で大きくなる)
 MERGE_KIN = 0.12              # この遺伝距離より近い個体どうしが合体候補
@@ -141,14 +142,14 @@ SHARK_KINDS = ("Tiger shark", "Bull shark", "Blacktip reef shark", "Hammerhead")
 LUCKY_RATE = 0.1              # 運のよい個体の割合(実時間で1週間ほど生きる)
 IMMIGRANT_GAP = (45 * 60, 90 * 60)   # (旧版の互換用。今は IMMIGRANT_RATE を使う)
 IMMIGRANT_RATE = 1.0          # 外来ガメが来る頻度: カメの1日あたり 1/(今いる数+1) 回
-FOOD_TO_BREED = 1.5           # 1匹あたりの食べられる海藻がこれより少ないと、恋をしない(増えすぎを防ぐ)
+FOOD_TO_BREED = 1.0           # 1匹あたりの食べられる海藻がこれより少ないと、恋をしない(増えすぎを防ぐ)
 EMIGRATE_FOOD = 1.1           # 1匹あたりの食べられる海藻がこれを下回ると、旅立つカメが出る
 EMIGRATE_RATE = 0.06          # 旅立ちの起こりやすさ(カメの1時間・1匹あたり、最大)
 EMIGRATE_MIN = 6              # これより少ないときは旅立たない
 CRISIS_DAYS = 21.0            # 絶滅の危機(嵐・赤潮・伝染病・不作)は平均 21 日に1度
 CRISIS_MIN_DAYS = 6.0         # 危機と危機の間は最低これだけあく
 CRISIS_FATAL = 1.0 / 9.0      # 危機のうち全滅してしまう割合(およそ半年に1度の絶滅)
-SICK_RATE = 0.035             # 病気になる確率(カメの1時間あたり、混み合いや空腹で上がる)
+SICK_RATE = 0.018             # 病気になる確率(カメの1時間あたり、混み合いや空腹で上がる)
 VISIT_LOG_GAP = 900           # よく来る訪問者は、イベント欄には5分に1回だけ書く
 BIG_WAVE_GAP = (15 * 60, 40 * 60)
 N_WAVES = 8
@@ -174,9 +175,11 @@ SAVE_NAME = "colony.json"
 FLOAT_GENES = ("hue", "hue2", "speed", "life", "size", "diet",
                "activity", "appetite", "cursor", "flock", "care", "whim",
                "temper", "fertility", "style", "dark",
-               "surf", "watch", "depth", "flirt", "clumsy")
+               "surf", "watch", "depth", "flirt", "clumsy", "nap", "drift")
 # 性格の遺伝子(イベントの起こりやすさ): surf=波乗り好き watch=ほかの生き物の観察好き
 # depth=浅瀬好き(1)〜沖合好き(0) flirt=メスを追いかけ回す(オス) clumsy=おっちょこちょい
+# nap=昼寝好き drift=泳がずにただようのが好き
+HOBBIES = ("surf", "watch", "nap", "drift")   # 「趣味」の遺伝子。多くのカメは、どれか1つがとても強い
 PATTERN_BITS = 28
 
 PASTEL = (0.55, 0.93, 0.38, 0.14, 0.76, 0.06)     # 水色・ピンク・ミント・レモン・ラベンダー・ピーチ
@@ -188,6 +191,14 @@ STYLES = ("plain", "polka dots", "stripes", "tortoiseshell", "ring", "mottled", 
 def random_genome(rng=random):
     g = {k: rng.random() for k in FLOAT_GENES}
     g["dark"] = rng.random() ** 3          # 濃い色(>0.9)はまれ
+    # のんびり気ままが基本: 怒りっぽい・おっちょこちょい・追いかけ回す個体は少なめ
+    g["temper"] = rng.random() ** 1.6
+    g["clumsy"] = rng.random() ** 2
+    g["flirt"] = rng.random() ** 2.5
+    for k in HOBBIES:                      # 趣味: 1つがとても強い個体が多い(波乗りばかり・昼寝ばかり…)
+        g[k] = rng.random() * 0.55
+    if rng.random() < 0.75:
+        g[rng.choice(HOBBIES)] = rng.uniform(0.8, 1.0)
     g["pattern"] = [rng.random() < 0.4 for _ in range(PATTERN_BITS)]
     return g
 
@@ -288,6 +299,10 @@ def traits(g):
         out.append("Flirt")
     if g.get("clumsy", 0) > 0.7:
         out.append("Clumsy")
+    if g.get("nap", 0) > 0.7:
+        out.append("Napper")
+    if g.get("drift", 0) > 0.7:
+        out.append("Drifter")
     return out
 
 
@@ -311,6 +326,8 @@ TRAIT_JOKES = {   # クリックしたときの、ちょっとユーモラスな
     "Offshore lover": "Dreams of the open ocean",
     "Flirt": "Chases every female in sight (they are not impressed)",
     "Clumsy": "Trips over its own flippers",
+    "Napper": "Its main hobby is napping. Its second hobby is also napping",
+    "Drifter": "Why swim when the sea can carry you?",
 }
 
 
@@ -654,6 +671,11 @@ class Plant:
         return 0 if b < 0.15 else 1 if b < 0.4 else 2 if b < 0.7 else 3
 
 
+def reef_spread(kind, n):
+    """岩場・サンゴ礁の広がり(Ver 7.2 で大きく。カメが隠れられるくらい)。"""
+    return (20 + 4.2 * n) if kind == "coral" else (16 + 5.0 * n)
+
+
 class Reef:
     """サンゴ礁(coral)と岩場(rock)。カメの寝床、熱帯魚のすみか、クリーニングの場所。"""
 
@@ -662,7 +684,7 @@ class Reef:
         rnd = random.Random(seed)
         if n is None:
             n = rnd.randint(6, 9) if kind == "coral" else rnd.randint(3, 4)
-        r = (14 + 3 * n) if kind == "coral" else (10 + 3.5 * n)   # 部品が多いほど大きい
+        r = reef_spread(kind, n)                                  # 部品が多いほど大きい
         self.drift = drift if drift is not None else rnd.uniform(0, math.tau)
         self.parts = []           # (dx, dy, 部品の種類, 色の番号)
         for i in range(n):
@@ -688,11 +710,11 @@ class Reef:
         self.y += my
         self.parts = [(p[0] - mx, p[1] - my, p[2], p[3]) for p in self.parts]
         far = max(math.hypot(p[0], p[1] / 0.75) for p in self.parts)
-        self.radius = max(22.0, far + 14)
+        self.radius = max(30.0, far + 20)
 
     def bed_point(self):
-        a = random.uniform(0, math.tau)
-        d = random.uniform(self.radius * 0.6, self.radius * 1.05)
+        a = random.uniform(0, math.tau)                    # 岩やサンゴのすき間にもぐりこむ
+        d = random.uniform(self.radius * 0.1, self.radius * 0.6)
         return self.x + math.cos(a) * d, self.y + math.sin(a) * d * 0.8
 
     def to_list(self):
@@ -890,10 +912,12 @@ class World:
         self.reefs = []
 
         def place(kind, n, y_lo, y_hi, x_hi=None):
-            r0 = 10 + 3.5 * n if kind == "rock" else 14 + 3 * n
+            r0 = reef_spread(kind, n) + 12
             for _ in range(200):
                 x = random.uniform(r0 + 15, (x_hi or self.w) - r0 - 15)
                 y = random.uniform(lt * y_lo, lt * y_hi)
+                if x + r0 > self.w - 230 and y - r0 < 130:             # 右上のグラフの下は避ける
+                    continue
                 if all(math.hypot(o.x - x, o.y - y) > o.radius + r0 + 18 for o in self.reefs):
                     break
             self.reefs.append(Reef(x, y, kind, random.randrange(10 ** 6), n=n))
@@ -901,7 +925,7 @@ class World:
         for n in (8, 5, 3):                                  # 大・中・小
             place("rock", n, 0.3, 0.85)
         for _ in range(4):
-            place("coral", random.randint(5, 8), 0.25, 0.85)
+            place("coral", random.randint(7, 10), 0.25, 0.85)
         self.seed_fish()
 
     def seed_fish(self):
@@ -916,7 +940,7 @@ class World:
 
     @staticmethod
     def fish_target(r):
-        return max(1, int(round(len(r.parts) * 0.8)))
+        return max(1, int(round(len(r.parts) * 0.6)))
 
     def _fish_population(self):
         """サンゴの増減に合わせて、熱帯魚も少しずつ増えたり減ったりする(遺伝子なし)。"""
@@ -1074,7 +1098,7 @@ class World:
         self._hatch(bdt, dt)
         alive = self.alive()
         self._pop = len(alive) + len(self.eggs)
-        self._food_per = self.edible_food() / max(1, self._pop)   # 1匹あたりの海藻(少ないと恋をしない)
+        self._food_per = self.edible_food() / max(1, len(alive))   # 1匹あたりの海藻(少ないと恋をしない)
         self.by_id = {t.id: t for t in alive}
         self._neighbors(alive, dt)
         for t in list(self.turtles):
@@ -1236,7 +1260,7 @@ class World:
                 self.sfx.append("flip")
                 return
         if t.state == "catch" or (t.state == "swim" and self.playful(t) and t.energy > 0.4
-                                  and random.random() < (0.6 if wv.big else 0.07)):
+                                  and random.random() < (0.6 if wv.big else 0.05 + 0.5 * max(0.0, g["surf"] - 0.7))):
             t.state, t.surf = "surf", wv               # 波に乗って岸へ向かう
             t.stats["surf"] += 1
             end = self.land_top - 4 if wv.big else self.shore(t.x) - 6
@@ -1942,7 +1966,8 @@ class World:
     def hatchling_leave(self):
         """子ガメが外洋へ旅立つ割合。海藻が少ないほど多い(15〜80%)。"""
         fp = getattr(self, "_food_per", 1.5)
-        return min(0.8, max(0.15, 0.75 - 0.3 * fp))
+        few = min(1.0, len(self.alive()) / 12.0)              # 数が少ないうちは、ほとんど残る
+        return min(0.8, max(0.15, 0.75 - 0.3 * fp)) * few
 
     def _emigrate(self, bdt, offline=False):
         """カメが増えて海藻が足りなくなると、何匹かは他の海域へ旅立つ(二度と戻らない)。"""
@@ -2089,10 +2114,10 @@ class World:
                         compat = 1.0 - abs(t.g["flock"] - o.g["flock"]) + (0.3 if o.lineage == t.lineage else 0)
                         t.aff[o.id] = t.aff.get(o.id, 0.0) + dt * 0.003 * (0.4 + compat)
                         if d2 < 35 * 35 and t.emote is None:
-                            if o.id == t.partner and random.random() < dt / 25:
-                                t.say("heart", 1.2)
+                            if o.id == t.partner and random.random() < dt / 60:
+                                t.say("flower", 1.2)
                             elif t.aff[o.id] >= FRIEND_AFF and random.random() < dt / 40:
-                                t.say(random.choice(("note", "blush")), 1.2)
+                                t.say("bubbles", 1.2)          # 友達: あわを出してあいさつ
             t.nb = (cx / n, cy / n, vx / n, vy / n, n, math.sqrt(near)) if n else None
             # さみしい・混みすぎ
             g = t.g
@@ -2185,20 +2210,23 @@ class World:
             t.state, t.state_t = "flee_shark", 1.5
 
         st = t.state
-        if st in ("flipped", "dance", "lay", "breathe", "petted", "cleaning", "wipeout", "mating", "idle"):
+        if st in ("flipped", "dance", "lay", "breathe", "petted", "cleaning", "wipeout", "mating", "idle",
+                  "nap", "drift"):
             if st == "lay" and t.state_t > 0:
                 self._laying_scene(t, dt)
-            elif st == "mating" and t.state_t > 0:
-                if t.sex == "F" and random.random() < dt * 2.5:
-                    self.fx.append(("hearts", t.x, t.y - t.radius))
-                if random.random() < dt:
-                    t.say(random.choice(("heart", "blush")), 1.0)
+            elif st in ("nap", "drift") and t.state_t > 0:
+                if t.energy < 0.35 or (t.air <= 0 and water):     # おなかがすいた・息継ぎ
+                    t.state_t = 0
+                elif st == "nap" and random.random() < dt / 3:
+                    t.say("zzz", 1.5, force=False)
+                elif st == "drift" and random.random() < dt / 12:
+                    t.say(random.choice(("dots", "note")), 1.2, force=False)
             elif st == "idle" and t.state_t > 0 and random.random() < dt * 0.8:
                 t.dir = (t.dir + random.choice((1, 3))) % 4   # きょろきょろ
             if t.state_t <= 0:
                 if st == "mating":                            # 交尾のアニメーションのあと、実際に交尾
                     p = getattr(t, "mate_with", None)
-                    if t.sex == "F" and p is not None and p.alive and p.state == "mating":
+                    if p is not None and p.alive and p.state == "mating":   # 先に終わった方が(オスでもメスでも)
                         t.state = p.state = "swim"
                         self._mate(t, p)
                     elif t.state == "mating":
@@ -2250,7 +2278,13 @@ class World:
                 t.state, t.vis = "swim", None
                 t.say("note", 1.0)
             elif random.random() < dt / 3:
-                t.say(random.choice(("star", "note", "heart")), 1.0, force=False)
+                t.say(random.choice(("star", "note")), 1.0, force=False)
+        elif st == "buddy":                                  # 友達と並んで泳ぐ
+            f = t.target
+            if f is None or not f.alive or t.state_t <= 0 or f.state in ("sleep", "lay", "nest", "dead", "depart"):
+                t.state, t.target = "swim", None
+            elif random.random() < dt / 5:
+                t.say("bubbles", 1.4, force=False)
         elif st == "sleep":
             t.fatigue = max(t.fatigue, -0.2)
             if t.energy < 0.2 and self._choose_food(t) is not None:   # おなかがすいて目がさめる(餌を探しに行く)
@@ -2278,8 +2312,8 @@ class World:
             if f is None or not f.alive or t.state_t <= 0 or f.state in ("sleep", "lay", "mating", "nest"):
                 t.state, t.target = "swim", None
             else:
-                if random.random() < dt / 2:
-                    t.say("heart", 1.0, force=False)
+                if random.random() < dt / 4:
+                    t.say("note", 1.0, force=False)
                 if math.hypot(f.x - t.x, f.y - t.y) < t.radius + f.radius + 6 and random.random() < dt:
                     if self._can_mate(t) and self._can_mate(f) and random.random() < 0.3:
                         self._start_mating(t, f)           # しつこさが実ることも
@@ -2316,11 +2350,36 @@ class World:
                 t.state, t.state_t = "idle", 2.5                # どこへ行くんだっけ?
                 t.say("question", 1.5)
             return
-        if random.random() < dt * 0.05 * g["watch"] ** 2:         # 観察好き
+        if t.energy > 0.45 and not t.clutch:
+            day = self.night < 0.5
+            if day and random.random() < dt * 0.02 * g["nap"] ** 3:       # 昼寝好き: 昼間もよく眠る
+                t.state, t.state_t = "nap", random.uniform(30, 60) * (0.5 + 2.0 * g["nap"])
+                t.say("zzz", 1.5)
+                if t.name or (g["nap"] > 0.8 and self.log_ok("nap", 900)):
+                    self.event("watch", "%s is taking a nap again..." % self.tag(t))
+                return
+            if random.random() < dt * 0.02 * g["drift"] ** 3:              # ただよい好き: 泳がずに流される
+                t.state, t.state_t = "drift", random.uniform(25, 50) * (0.5 + 2.0 * g["drift"])
+                if t.name or (g["drift"] > 0.8 and self.log_ok("drift", 900)):
+                    self.event("watch", "%s is just drifting with the current" % self.tag(t))
+                return
+            if random.random() < dt * 0.012 * (0.3 + g["flock"]):         # 友達と並んで泳ぐ
+                fr = [o for o in self.friends(t) if o.state in ("swim", "food")
+                      and math.hypot(o.x - t.x, o.y - t.y) < 160]
+                if fr:
+                    f = random.choice(fr)
+                    t.state, t.target, t.state_t = "buddy", f, random.uniform(15, 35)
+                    t.say("bubbles", 1.5)
+                    if t.name or f.name or self.log_ok("buddy", 600):
+                        self.event("friend", "%s and %s are swimming side by side (good friends)"
+                                   % (self.tag(t), self.tag(f)))
+                    return
+        if random.random() < dt * 0.05 * g["watch"] ** 2:         # 観察好き(タコが大好き)
             near = [v for v in self.visitors if not v.gone and math.hypot(v.x - t.x, v.y - t.y) < 230]
             if near:
-                v = random.choice(near)
-                t.state, t.vis, t.state_t = "watch", v, random.uniform(10, 20)
+                octo = [v for v in near if v.kind == "octopus"]
+                v = random.choice(octo or near)
+                t.state, t.vis, t.state_t = "watch", v, random.uniform(10, 20) * (1 + 5 * max(0.0, g["watch"] - 0.7) / 0.3)
                 t.say("sparkle", 1.2)
                 if t.name or self.log_ok("watch", 600):
                     self.event("watch", "%s is watching the %s with great interest"
@@ -2373,13 +2432,14 @@ class World:
                 self.fx.append(("dust", t.x + random.uniform(-8, 8), t.y + random.uniform(-4, 6)))
 
     def _start_mating(self, a, b):
-        """交尾のアニメーション: 寄りそってくるくる回り、ハートがあふれる。"""
+        """交尾: 寄りそって、ハートが1つ出るだけ(あっさり)。"""
+        self.mating_open()
+        self.mates_today = getattr(self, "mates_today", 0) + 1
         for x, y in ((a, b), (b, a)):
             x.state, x.state_t, x.mate_with, x.target = "mating", MATING_TIME, y, None
-        a.say("heart", 1.5)
-        b.say("heart", 1.5)
-        self.fx.append(("hearts", (a.x + b.x) / 2, (a.y + b.y) / 2))
-        self.sfx.append("love")
+        f = a if a.sex == "F" else b
+        f.say("heart", MATING_TIME)
+        self.sfx.append("heart")
 
     def _illness(self, t, bdt):
         """病気: 混み合い・空腹・年をとると、かかりやすい。治ることも、亡くなることも。
@@ -2476,10 +2536,24 @@ class World:
         free = [s for s in self.schools if s.cleaning is None]
         return random.choice(free) if free else None
 
+    def mating_open(self):
+        """今日まだ交尾できるか(朝だけ、1日に 1〜2 ペア)。"""
+        a, b = MATING_HOURS
+        if not (a <= self.hour < b):
+            if self.hour < a or self.hour >= b + 2:
+                self._mate_new = True                     # 次の朝は、また 1〜2 ペア
+            return False
+        if getattr(self, "_mate_new", True):
+            self._mate_new, self.mates_today = False, 0
+            self.mate_quota = random.choice((1, 2, 2))
+        return self.mates_today < self.mate_quota
+
     def _can_mate(self, t):
-        return (t.alive and t.state in ("swim", "court", "flirt") and t.adult and t.energy > 0.5
+        return (t.alive and t.state in ("swim", "court", "flirt", "drift", "idle", "watch", "nap", "food")
+                and t.adult and t.energy > 0.5
+                and self.mating_open()
                 and t.mate_cd <= 0 and not t.clutch and self.in_water(t.x, t.y)
-                and self._pop < MAX_TURTLES - 1 and getattr(self, "_food_per", 1.0) > FOOD_TO_BREED)
+                and self._pop < MAX_TURTLES - 1 and getattr(self, "_food_per", 9.0) > FOOD_TO_BREED)
 
     def _find_partner(self, t):
         best, bd = None, 450.0
@@ -2600,7 +2674,17 @@ class World:
             t.y += 10 * dt
             t.dir = int(t.anim / 0.12) % 4
             mul = 0.0
-        elif st in ("sleep", "flipped", "lay", "breathe", "petted", "cleaning", "idle"):
+        elif st == "drift":                                 # ひれを動かさず、流れにまかせる
+            dx = math.cos(t.anim * 0.15 + t.id) + 0.4
+            dy = 0.5 * math.sin(t.anim * 0.4 + t.id)
+            mul = 0.1
+        elif st == "buddy" and t.target is not None:        # 友達のとなりを、同じ向きで
+            f = t.target
+            side = 16 if t.id < f.id else -16
+            hx, hy = math.cos(f.heading), math.sin(f.heading)
+            dx, dy = f.x - hy * side + hx * 6 - t.x, f.y + hx * side + hy * 6 - t.y
+            mul = 0.9 if math.hypot(dx, dy) > 10 else 0.5
+        elif st in ("sleep", "flipped", "lay", "breathe", "petted", "cleaning", "idle", "nap"):
             mul = 0.0
         elif st == "mating" and getattr(t, "mate_with", None):
             p = t.mate_with                                 # 寄りそってくるくる回る
@@ -2810,7 +2894,7 @@ class World:
                 if t.dash_t < 1.0:
                     mul *= 1.9
                     if t.dash_t <= 0:
-                        t.dash_t = random.uniform(5, 12)
+                        t.dash_t = random.uniform(20, 45)
         chewing = t.eat_cd > 0 and st in ("swim", "food")
         if chewing:
             mul = 0.0                                       # 噛んでいる間は止まる
@@ -2898,7 +2982,10 @@ class World:
         room = MAX_TURTLES - self.population()
         n = min(room, 3 + int(mom.g["fertility"] * 3.99),
                 int((mom.energy - 0.12) / EGG_COST))        # 産める数は母親の栄養しだい
-        if n <= 0:
+        if n <= 0:                                           # 産めなくても、しばらくは交尾しない
+            for t in (a, b):
+                t.mate_cd = max(t.mate_cd, MALE_MATE_GAP * 0.5)
+                t.state, t.target = "swim", None
             return
         again = mom.partner == dad.id
         for t in (a, b):
@@ -3028,7 +3115,8 @@ class World:
                "flipped": "flipped over!", "dance": "dancing with joy", "flee": "running away",
                "flee_shark": "fleeing from the shark!", "breathe": "poking its head out for air",
                "petted": "enjoying being petted", "to_bed": "heading to bed",
-               "depart": "leaving for a faraway sea",
+               "depart": "leaving for a faraway sea", "nap": "taking a nap", "drift": "drifting with the current",
+               "buddy": "swimming with a friend",
                "to_clean": "going to the cleaning station", "cleaning": "being cleaned by fish",
                "surf": "surfing!", "catch": "paddling out to catch the big wave", "wipeout": "wiped out!", "play": "playing with the visitor"}
         if not self.in_water(t.x, t.y) and t.state == "swim":
@@ -3172,7 +3260,7 @@ class World:
         self._jellies_offline(dt)
         alive = self.alive()
         self._pop = len(alive) + len(self.eggs)
-        self._food_per = self.edible_food() / max(1, self._pop)
+        self._food_per = self.edible_food() / max(1, len(alive))
         self.by_id = {t.id: t for t in alive}
         random.shuffle(alive)
         shift = self.appetite_shift()
@@ -3238,6 +3326,7 @@ class World:
             random.shuffle(mal)
             for f, m in zip(fem, mal):
                 if random.random() < 0.3 and self._can_mate(f) and self._can_mate(m):
+                    self.mates_today = getattr(self, "mates_today", 0) + 1
                     self._mate(f, m)
         self._immigrants(dt, offline=True)
         self._crisis(dt)
@@ -3268,6 +3357,10 @@ class World:
         wd = cls(d.get("w", 700), d.get("h", 440))
         if d.get("reefs"):
             wd.reefs = [Reef(*r) for r in d["reefs"]]
+            if tuple(int(x) for x in str(d.get("version", "0")).split(".")[:2]) < (7, 2):
+                for rf in wd.reefs:                                  # 旧版: 部品の間隔を広げる
+                    rf.parts = [(p[0] * 1.35, p[1] * 1.35, p[2], p[3]) for p in rf.parts]
+                    rf.recenter()
             if sum(r.kind == "rock" for r in wd.reefs) < 5:        # 旧版: 岩場を 5 か所に
                 lt = wd.land_top
                 for fx, fy in ((0.70, 0.18), (0.05, 0.80), (0.95, 0.40))[:5 - sum(r.kind == "rock" for r in wd.reefs)]:
@@ -3513,6 +3606,7 @@ EMOTES = {
     "blush": ({"X": "#ff9cc0"}, ("XX...XX", "XXX.XXX", ".X...X.")),
     "flower": ({"X": "#ffb3d1", "o": "#ffe066"}, (".X.X.", "XXoXX", ".XoX.", "XXoXX", ".X.X.")),
     "dots": ({"X": "#ffffff"}, ("X.X.X",)),
+    "bubbles": ({"X": "#e6fbff", "o": "#9fe2ff"}, ("...XX", "..X.oX", "...XX.", ".X....", "XoX...", ".X....")),
     "egg": ({"X": "#fffdf0"}, (".XX.", "XXXX", "XXXX", "XXXX", ".XX.")),
     "ghost": ({"X": "#f4f4ff"}, (".XXX.", "XXXXX", "X.X.X", "XXXXX", "XXXXX", "X.X.X")),
 }
@@ -4482,7 +4576,7 @@ class App:
                     cols = dict(zip("Xxo", ROCK_COLORS))
                 else:
                     cols = dict(zip("Xxo", CORAL_COLORS[ci]))
-                self.reef_img[(piece, ci)] = self._img(art, cols, 3, sp)
+                self.reef_img[(piece, ci)] = self._img(art, cols, 4, sp)     # 大きく(Ver 7.2)
         for ent in getattr(self, "items", {}).values():
             ent[3].clear()
             ent[4] = None
@@ -5005,7 +5099,7 @@ class App:
         if t.state == "lay":                            # 産卵: 掘る・砂をかける間はひれを速く動かす
             digging = t.state_t > LAY_TIME * 0.7 or t.state_t < LAY_TIME * 0.25
             return (t.dir, int(t.anim / 0.12) % 2 if digging else 0, "normal", t.scale)
-        if t.state in ("sleep", "petted", "idle"):
+        if t.state in ("sleep", "petted", "idle", "nap", "drift"):
             return (t.dir, 0, "weak" if w.weak(t) else "normal", t.scale)
         if t.state == "surf":
             return (t.dir, 1, "normal", t.scale)
@@ -5161,10 +5255,17 @@ class App:
         if self.show_rel:
             self.draw_relations(dt)
 
+        hidden = {t.id for t in w.turtles if t.state in ("sleep", "nap") and t.bed_kind
+                  and t.id in self.items and w._near_reef(t.x, t.y)}       # 岩やサンゴのすき間で眠る
+        if hidden != getattr(self, "hidden", set()):
+            self.hidden = hidden
+            self.order_dirty = True
         if self.order_dirty:
             for tag in ("bg", "glit", "meadow", "plant", "reef", "wave", "bg2", "egg", "fish", "jelly",
                         "rel", "turtle", "fishtop", "visitor", "shark", "fx", "ui", "panel", "tip", "memo"):
                 c.tag_raise(tag)
+            for tid in self.hidden:                                   # 隠れているカメは岩・サンゴの下に
+                c.tag_lower(self.items[tid][0], "reef")
             self.order_dirty = False
 
         self.hud_t -= dt
