@@ -1116,6 +1116,46 @@ class TestV7(unittest.TestCase):
             self.assertTrue(seen, hobby)
         self.assertIn("Napper", up.traits(dict(up.random_genome(), nap=0.9)))
 
+    def test_old_save_with_eggs_and_clutches_runs(self):
+        """旧版(遺伝子が足りない)の卵・抱えた卵からかえった子でも止まらない。"""
+        random.seed(82)
+        w = self.make()
+        w.seed()
+        d = w.to_dict()
+        old = {k: v for k, v in up.random_genome().items() if k not in ("nap", "drift")}
+        d["turtles"][0]["clutch"] = [{"g": dict(old), "dad": None, "gen": 2, "par": "x"}]
+        d["eggs"] = [up.Egg(dict(old), 300, w.shore(300) + 20, 2, "A", "x", t=0).to_dict()]
+        d["version"] = "7.1.0"
+        w2 = up.World.from_dict(d)
+        w2.clock = lambda: at(6, 21, 23, 0)
+        w2.update_daylight(up.turtle_clock(w2.clock()), log=False)
+        t = up.Turtle(dict(old), 300, 150, age=up.ADULT_AGE)
+        self.assertIn("nap", t.g)
+        w2.turtles.append(t)
+        for _ in range(400):
+            w2.step(0.5)
+
+    @unittest.skipUnless(os.environ.get("DISPLAY"), "画面がない")
+    def test_app_runs_frames(self):
+        """画面を作って数十コマ動かしてもエラーにならない(隠れるカメがいないときも)。"""
+        d = tempfile.mkdtemp()
+        os.environ["UMIGAME_SAVE_DIR"] = d
+        app = up.App()
+        errs = []
+        orig = app._tick
+        def tick():
+            try:
+                orig()
+            except Exception as e:                      # noqa: BLE001
+                errs.append(e)
+                raise
+        app._tick = tick
+        import tkinter.messagebox as mb
+        mb.showerror = lambda *a, **k: None
+        app.root.after(3000, app.root.destroy)
+        app.run()
+        self.assertEqual(errs, [])
+
 
 if __name__ == "__main__":
     unittest.main()

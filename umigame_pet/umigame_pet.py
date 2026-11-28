@@ -51,7 +51,7 @@ import string
 import sys
 import time
 
-VERSION = "7.2.0"
+VERSION = "7.2.1"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
@@ -216,6 +216,7 @@ def fill_genome(g):
 
 def crossover(a, b, rng=random):
     """遺伝子のスクランブル: 一様交叉。模様は1点交叉(親の模様の塊が残る)。"""
+    a, b = (x if all(k in x for k in FLOAT_GENES) else fill_genome(x) for x in (a, b))
     child = {k: (a[k] if rng.random() < 0.5 else b[k]) for k in FLOAT_GENES}
     cut = rng.randrange(PATTERN_BITS)
     child["pattern"] = a["pattern"][:cut] + b["pattern"][cut:]
@@ -458,7 +459,7 @@ class Turtle:
         else:
             Turtle._ids = max(Turtle._ids, tid)
         self.id = tid
-        self.g = genome
+        self.g = genome if all(k in genome for k in FLOAT_GENES) else fill_genome(genome)   # 旧版の卵など
         self.sex = sex or random.choice("FM")
         self.lineage = lineage
         self.parents = parents or ""
@@ -5061,6 +5062,29 @@ class App:
 
     # ---- 毎フレーム
     def tick(self):
+        """1コマ進める。思わぬエラーが起きても止まらず、内容を一度だけ表示して記録する。"""
+        try:
+            self._tick()
+        except Exception:
+            import traceback
+            msg = traceback.format_exc()
+            print(msg, file=sys.stderr)
+            try:
+                with open(os.path.join(self.save_dir, "error_log.txt"), "a", encoding="utf-8") as f:
+                    f.write("%s  Ver %s\n%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), VERSION, msg))
+            except OSError:
+                pass
+            if not getattr(self, "error_shown", False):
+                self.error_shown = True
+                try:
+                    import tkinter.messagebox as mb
+                    mb.showerror("Sea Turtle Colony", "An error occurred (the colony keeps running).\n\n" + msg[-1500:])
+                except Exception:
+                    pass
+            self.last = time.monotonic()
+            self.root.after(TICK_MS, self.tick)
+
+    def _tick(self):
         now = time.monotonic()
         dt = now - self.last
         self.last = now
@@ -5257,7 +5281,7 @@ class App:
 
         hidden = {t.id for t in w.turtles if t.state in ("sleep", "nap") and t.bed_kind
                   and t.id in self.items and w._near_reef(t.x, t.y)}       # 岩やサンゴのすき間で眠る
-        if hidden != getattr(self, "hidden", set()):
+        if hidden != getattr(self, "hidden", None):
             self.hidden = hidden
             self.order_dirty = True
         if self.order_dirty:
