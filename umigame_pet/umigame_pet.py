@@ -24,6 +24,8 @@ Sea Turtle Colony(ウミガメ群体)— デスクトップで動く人工生命
     卵・水草・クラゲ・サメに重ねる → 説明を表示
     水をクリック → クラゲを落とす   Shift+クリック → 水草を植える
     右クリック → 最前面に固定の切り替え   L キー → 系統の文字を表示
+・昼と夜: パソコンの時計に合わせて 薄明・日の出・昼・夕焼け・薄暮・夜 の色になり、
+  カメは夜に眠り、暗くなってから産卵し、夕方は寄り集まる(日の出・日の入りは東京付近の近似)。
 ・閉じると群体を Google ドライブ(パソコン版 Google ドライブの同期フォルダ)に保存。
   次に起動すると、閉じていた実時間ぶん(最大7日)群体と生態系の時間を進める。
 
@@ -44,7 +46,7 @@ import string
 import sys
 import time
 
-VERSION = "3.0.0"
+VERSION = "3.1.0"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
@@ -200,6 +202,58 @@ def lineage_name(i):
     return s
 
 
+# ---------------------------------------------------------------- 昼と夜(パソコンの時計に合わせる)
+# 空の明るさと色み(R, G, B の倍率)
+TINTS = {"night": (0.22, 0.28, 0.45), "twilight": (0.50, 0.58, 0.85), "sunrise": (1.00, 0.82, 0.72),
+         "day": (1.00, 1.00, 1.00), "sunset": (1.08, 0.72, 0.50), "dusk": (0.55, 0.46, 0.72)}
+PHASE_MSG = {
+    "Dawn twilight": "Dawn twilight - the sky is getting lighter",
+    "Sunrise": "Sunrise! The turtles wake up",
+    "Daytime": "Daytime - a good time to eat",
+    "Sunset": "Sunset - the sea turns orange",
+    "Dusk": "Dusk - mothers head for the beach to lay eggs",
+    "Night": "Night - most turtles fall asleep",
+}
+
+
+def sun_times(ts):
+    """日の出・日の入りの時刻(時)。日本(東京付近)の季節変化を簡単な式で近似。
+    夏至ごろ 4:24 / 19:00、冬至ごろ 6:48 / 16:30。"""
+    doy = time.localtime(ts).tm_yday
+    c = math.cos(2 * math.pi * (doy - 172) / 365.0)
+    return 5.6 - 1.2 * c, 17.75 + 1.25 * c
+
+
+def daylight(ts):
+    """(時間帯の名前, 夜らしさ 0〜1, 色み, 時刻[時]) を返す。"""
+    lt = time.localtime(ts)
+    h = lt.tm_hour + lt.tm_min / 60.0 + lt.tm_sec / 3600.0
+    sr, ss = sun_times(ts)
+    keys = [(sr - 1.0, "night"), (sr - 0.5, "twilight"), (sr, "sunrise"), (sr + 1.0, "day"),
+            (ss - 1.0, "day"), (ss - 0.2, "sunset"), (ss + 0.5, "dusk"), (ss + 1.2, "night")]
+    tint = TINTS["night"]
+    for (h0, a), (h1, b) in zip(keys, keys[1:]):
+        if h0 <= h < h1:
+            f = (h - h0) / (h1 - h0)
+            tint = tuple(x + (y - x) * f for x, y in zip(TINTS[a], TINTS[b]))
+            break
+    if h < sr - 1.0 or h >= ss + 1.0:
+        phase = "Night"
+    elif h < sr - 0.2:
+        phase = "Dawn twilight"
+    elif h < sr + 0.8:
+        phase = "Sunrise"
+    elif h < ss - 1.0:
+        phase = "Daytime"
+    elif h < ss + 0.2:
+        phase = "Sunset"
+    else:
+        phase = "Dusk"
+    bright = sum(min(1.0, x) for x in tint) / 3
+    night = max(0.0, min(1.0, (1.0 - bright) / (1.0 - sum(TINTS["night"]) / 3)))
+    return phase, night, tint, h
+
+
 # ---------------------------------------------------------------- 生き物と餌
 class Turtle:
     _ids = 0
@@ -280,6 +334,10 @@ class Turtle:
     @property
     def eat_below(self):
         return 0.35 + 0.5 * self.g["appetite"]
+
+    def night_pull(self, night):
+        """夜の眠気。活発な個体ほど夜でも起きている(夜ふかし)。"""
+        return night * (1.0 - 0.7 * self.g["activity"])
 
     @property
     def awake_len(self):
@@ -385,6 +443,9 @@ class World:
         self.plants = []
         self.shark = None
         self.shark_t = random.uniform(*SHARK_GAP)
+        self.clock = time.time    # テストでは差し替える
+        self.phase, self.night, self.tint, self.hour = daylight(self.clock())
+        self.phase_msg = None
         self.fx = []              # 描画側への演出 (種類, x, y)
         self.jellies = []
         self.time = 0.0
@@ -448,7 +509,8 @@ class World:
         return sum(t.alive for t in self.turtles) + len(self.eggs)
 
     def event(self, kind, text):
-        self.events.append((time.strftime("%H:%M"), kind, text))
+        ts = getattr(self, "now_ts", None) or time.time()
+        self.events.append((time.strftime("%H:%M", time.localtime(ts)), kind, text))
         self.events = self.events[-8:]
 
     @staticmethod
@@ -456,9 +518,19 @@ class World:
         return "#%d (%s)" % (t.id, t.lineage)
 
     # ---- 1フレーム
+    def update_daylight(self, ts, log=True):
+        self.now_ts = ts
+        phase, self.night, self.tint, self.hour = daylight(ts)
+        if phase != self.phase:
+            self.phase = phase
+            if log:
+                self.phase_msg = PHASE_MSG[phase]
+                self.event("time", PHASE_MSG[phase])
+
     def step(self, dt):
         dt = min(dt, 0.5)
         self.time += dt
+        self.update_daylight(self.clock())
         self._grow_plants(dt)
         self._jellies(dt)
         self._shark_step(dt)
@@ -517,7 +589,7 @@ class World:
     # ---- サメ(まれに沖に現れ、大きなカメを狙う)
     def _shark_step(self, dt):
         if self.shark is None:
-            self.shark_t -= dt
+            self.shark_t -= dt * (1.0 + self.night)     # サメは夕方〜夜に現れやすい
             if self.shark_t <= 0:
                 self.shark_t = random.uniform(*SHARK_GAP)
                 left = random.random() < 0.5
@@ -714,8 +786,15 @@ class World:
                 else:
                     t.state = "swim"
         elif t.state == "sleep":
-            if t.fatigue <= 0:
-                t.state = "swim"
+            t.fatigue = max(t.fatigue, -0.2)
+            if t.fatigue <= 0 and t.night_pull(self.night) < 0.5:
+                t.state = "swim"                      # 朝になったら起きる
+                if self.night < 0.4 and self.phase in ("Sunrise", "Dawn twilight"):
+                    t.say("note", 1.5)
+            elif t.air <= 0 and water:                # 寝ていても息継ぎに浮上する
+                t.state, t.state_t = "breathe", BREATH_TIME
+                t.say("puff", BREATH_TIME)
+                self.fx.append(("ripple", t.x, t.y))
             elif random.random() < dt / 3:
                 t.say("zzz", 1.5)
         elif t.state in ("flee", "flee_shark") and t.state_t > 0:
@@ -723,8 +802,8 @@ class World:
         else:
             prev = t.state
             t.state = "swim"
-            if t.clutch:
-                t.state = "nest"
+            if t.clutch and (self.night > 0.3 or t.energy < 0.25):
+                t.state = "nest"                      # 産卵は暗くなってから(ウミガメの習性)
                 if t.nest is None:
                     t.nest = self.beach_point()
             elif not water:
@@ -733,10 +812,10 @@ class World:
                 t.state, t.state_t = "breathe", BREATH_TIME
                 t.say("puff", BREATH_TIME)
                 self.fx.append(("ripple", t.x, t.y))
-            elif t.fatigue > 1 and t.energy > 0.15:
+            elif t.fatigue + t.night_pull(self.night) > 1 and t.energy > 0.15 and not t.clutch:
                 t.state = "sleep"
                 t.say("zzz", 2)
-            elif t.energy < t.eat_below and (prev == "food" or t.energy < t.eat_below - 0.05):
+            elif t.energy < t.eat_below + (0.1 if self.phase == "Sunrise" else 0.0) and (prev == "food" or t.energy < t.eat_below - 0.05):
                 if t.food is None or t.food.gone or t.food_t <= 0:
                     t.food = self._choose_food(t)
                     t.food_t = 1.0
@@ -908,6 +987,8 @@ class World:
             dx, dy = math.cos(t.heading), math.sin(t.heading)
             nb = t.nb
             fw = (t.g["flock"] - 0.5) * 2 * care
+            if self.phase in ("Sunset", "Dusk"):     # 夕方は寄り集まる
+                fw = min(1.0, fw + 0.4 * care)
             if nb and abs(fw) > 0.05:
                 cx, cy, avx, avy, n, near = nb
                 ox, oy = cx - t.x, cy - t.y
@@ -932,6 +1013,8 @@ class World:
             t.heading = math.atan2(dy, dx)
         if not water:
             mul *= 0.35                               # 砂浜ではゆっくり這う
+        elif st not in ("flee_shark", "nest"):
+            mul *= 1.0 - 0.3 * self.night             # 夜はゆっくり
         n = math.hypot(dx, dy) or 1.0
         tx, ty = dx / n * sp * mul, dy / n * sp * mul
         k = min(1.0, dt * 2.0)
@@ -1132,7 +1215,8 @@ class World:
         if t.parents:
             lines.append("Origin: " + t.parents)
         if t.clutch:
-            lines.append("Carrying %d eggs" % len(t.clutch))
+            lines.append("Carrying %d eggs%s" % (len(t.clutch),
+                                                 "" if self.night > 0.3 else " (waits for dark to nest)"))
         if t.pets:
             lines.append("Petted %d time%s" % (t.pets, "s" if t.pets != 1 else ""))
         lines.append("Now: " + st)
@@ -1158,8 +1242,12 @@ class World:
         return None
 
     # ---- 留守中の時間経過(1分刻みでまとめて計算)
-    def advance_offline(self, seconds):
+    def advance_offline(self, seconds, start=None):
+        """start: 閉じた時刻(UNIX時間)。昼夜をその時刻から再現する。"""
         seconds = min(max(0.0, seconds), OFFLINE_MAX)
+        if start is None:
+            start = self.clock() - seconds
+        self._off_ts = start
         b0, d0, l0 = self.births, self.deaths, self.laid
         steps = int(seconds // OFFLINE_STEP)
         rest = seconds - steps * OFFLINE_STEP
@@ -1169,6 +1257,7 @@ class World:
                 self._offline_step(dt)
         self.jellies = []
         self.shark = None
+        self.update_daylight(self.clock(), log=False)
         for t in self.turtles:
             t.emote, t.food, t.target = None, None, None
             if t.state not in ("sleep", "dead"):
@@ -1178,6 +1267,8 @@ class World:
 
     def _offline_step(self, dt):
         self.time += dt
+        self._off_ts = getattr(self, "_off_ts", self.clock()) + dt
+        self.update_daylight(self._off_ts, log=False)
         self._grow_plants(dt)
         jelly_in = min(JELLY_MAX, dt / JELLY_INTERVAL)      # 流れてくるクラゲ(平均)
         alive = self.alive()
@@ -1186,7 +1277,7 @@ class World:
         for t in alive:
             t.age += dt
             t.mate_cd -= dt
-            awake = t.awake_len / (t.awake_len + t.sleep_len)
+            awake = t.awake_len / (t.awake_len + t.sleep_len) * (1 - 0.8 * t.night_pull(self.night))
             t.energy -= t.metab * dt * (awake + 0.35 * (1 - awake))
             t.joy = max(0.0, t.joy - 0.015 * dt)
             t.annoy = max(0.0, t.annoy - 0.02 * dt)
@@ -1520,10 +1611,28 @@ def turtle_pixels(g, frame, mode):
 
 
 # ---------------------------------------------------------------- 画面(tkinter)
-def water_color(world, y):
-    """海の色(沖ほど濃く、波打ち際ほど明るい)。"""
+def tint_rgb(rgb, k):
+    return tuple(min(255, int(c * m)) for c, m in zip(rgb, k))
+
+
+def hex_rgb(col):
+    return tuple(int(col[i:i + 2], 16) for i in (1, 3, 5))
+
+
+def tint_hex(col, k):
+    return "#%02x%02x%02x" % tint_rgb(hex_rgb(col), k)
+
+
+def water_color(world, y, k=(1, 1, 1)):
+    """海の色(沖ほど濃く、波打ち際ほど明るい)に、時間帯の色みをかける。"""
     f = min(1.0, max(0.0, y / max(1.0, world.land_top + 8)))
-    return tuple(int(a + (b - a) * f) for a, b in zip(WATER_DEEP, WATER_SHALLOW))
+    return tint_rgb(tuple(int(a + (b - a) * f) for a, b in zip(WATER_DEEP, WATER_SHALLOW)), k)
+
+
+GLITTER = {   # 水面のきらめき(太陽・月の反射)の色と数
+    "Daytime": ("#f4ffff", 6), "Sunrise": ("#ffe3a6", 14), "Sunset": ("#ffc46e", 16),
+    "Dusk": ("#e9c2ff", 10), "Dawn twilight": ("#d6e4ff", 8), "Night": ("#f2f6ff", 12),
+}
 
 
 def mix(c1, c2, f):
@@ -1561,21 +1670,17 @@ class App:
         self.items = {}       # turtle.id -> [image, emote, lineage_text, cache, last_key]
         self.tables = {"plant": {}, "jelly": {}, "egg": {}}
         self.emote_img = {k: self._img(px, {"X": col}, 2) for k, (col, px) in EMOTES.items()}
-        pc = {"g": "#1d8f55", "G": "#5ee08a"}
-        self.plant_img = [self._img(PLANT_ART[0], {"g": "#3d8a62"}, 2)] + \
-                         [self._img(a, pc, 2) for a in PLANT_ART[1:]]
-        self.jelly_img = self._img(JELLY_ART, {"X": "#ffc4ee"}, 2)
-        self.egg_img = self._img(EGG_ART, {"X": "#fffdf2"}, 2)
-        self.star_img = self._img(STAR_ART, {"X": "#ff8a4c"}, 2)
-        sc = {"B": "#5d7b8c", "b": "#c9d6dc", "E": "#111111", "F": "#4a6676"}
-        self.shark_img = {}
-        for f, art in enumerate(SHARK_ART):
-            self.shark_img[(1, f)] = self._img(art, sc, 3)
-            self.shark_img[(3, f)] = self._img(tuple(r[::-1] for r in art), sc, 3)
+        self.jelly_img = self._img(JELLY_ART, {"X": "#ffc4ee"}, 2)   # クラゲは夜も光って見える
+        self.bg_tint = None
+        self.make_tinted_images((1, 1, 1))
         self.shark_item = None
         self.bg_items = []
         self.foam = c.create_line(0, 0, 1, 1, fill="#ffffff", width=2, tags="bg2")
         self.waves = [self._new_wave(first=True) for _ in range(9)]
+        self.glitter = [c.create_line(0, 0, 1, 1, width=2, state="hidden", tags="wave")
+                        for _ in range(16)]
+        self.glit_t = 0.0
+        self.light_t = 0.0
         self.fx_items = []    # [item, kind, x, y, t, life]
         self.hud = c.create_text(8, 6, anchor="nw", fill="#04505c", font=("", 9), tags="ui")
         self.graph_box = c.create_rectangle(0, 0, 1, 1, fill="#e9fbf8", outline="#6cc9c9", tags="ui")
@@ -1632,13 +1737,68 @@ class App:
         self.root.after(TICK_MS, self.tick)
 
     # ---- 画像
-    def _img(self, rows, colors, scale):
+    def _img(self, rows, colors, scale, k=None):
         img = self.tk.PhotoImage(width=len(rows[0]), height=len(rows))
         for y, r in enumerate(rows):
             for x, ch in enumerate(r):
                 if ch in colors:
-                    img.put(colors[ch], to=(x, y))
+                    img.put(tint_hex(colors[ch], k) if k else colors[ch], to=(x, y))
         return img.zoom(scale)
+
+    def make_tinted_images(self, bg):
+        """時間帯の色みに合わせて画像を作り直す(色みが変わったときだけ)。"""
+        self.bg_tint = bg
+        sp = tuple(0.45 + 0.55 * min(1.1, x) for x in bg)      # 生き物は背景より少し明るく
+        self.sprite_tint = sp
+        pc = {"g": "#1d8f55", "G": "#5ee08a"}
+        self.plant_img = [self._img(PLANT_ART[0], {"g": "#3d8a62"}, 2, sp)] + \
+                         [self._img(a, pc, 2, sp) for a in PLANT_ART[1:]]
+        self.egg_img = self._img(EGG_ART, {"X": "#fffdf2"}, 2, sp)
+        self.star_img = self._img(STAR_ART, {"X": "#ff8a4c"}, 2, bg)
+        sc = {"B": "#5d7b8c", "b": "#c9d6dc", "E": "#111111", "F": "#4a6676"}
+        self.shark_img = {}
+        for f, art in enumerate(SHARK_ART):
+            self.shark_img[(1, f)] = self._img(art, sc, 3, sp)
+            self.shark_img[(3, f)] = self._img(tuple(r[::-1] for r in art), sc, 3, sp)
+        for ent in getattr(self, "items", {}).values():
+            ent[3].clear()
+            ent[4] = None
+        for tab in getattr(self, "tables", {}).values():
+            for ent in tab.values():
+                ent[1] = None
+
+    def apply_light(self):
+        w = self.world
+        q = tuple(round(x * 20) / 20 for x in w.tint)
+        if q == self.bg_tint:
+            return
+        self.make_tinted_images(q)
+        self.draw_background()
+        def lum(rgb):
+            return (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255
+        sea_dark = lum(tint_rgb(WATER_DEEP, q)) < 0.48         # 文字の色を背景の明るさで切り替える
+        sand_dark = lum(tint_rgb(hex_rgb(SAND_DRY), q)) < 0.6
+        self.canvas.itemconfigure(self.hud, fill="#f2fbff" if sea_dark else "#04505c")
+        for it in self.log_items:
+            self.canvas.itemconfigure(it, fill="#fff3d6" if sand_dark else "#6b4a12")
+        self.canvas.itemconfigure(self.help, fill="#eadcb8" if sand_dark else "#9a7a3c")
+        self.canvas.itemconfigure(self.foam, fill=tint_hex("#ffffff", q))
+
+    def update_glitter(self):
+        """太陽・月が水面に映ってきらめく。朝夕は多く、夜は月明かり。"""
+        c, w = self.canvas, self.world
+        col, n = GLITTER.get(w.phase, ("#ffffff", 6))
+        frac = (w.hour % 24) / 24.0
+        cx = w.w * (0.15 + 0.7 * ((frac * 2) % 1.0))           # 時刻で横に動く
+        for i, it in enumerate(self.glitter):
+            if i >= n or random.random() < 0.25:
+                c.itemconfigure(it, state="hidden")
+                continue
+            y = random.uniform(10, w.land_top * 0.8)
+            x = cx + random.gauss(0, 18 + y * 0.12)
+            ln = random.uniform(3, 10)
+            c.coords(it, x - ln, y, x + ln, y)
+            c.itemconfigure(it, fill=col, state="normal")
 
     def turtle_img(self, t, cache, key):
         img = cache.get(key)
@@ -1646,10 +1806,11 @@ class App:
             d, frame, mode, scale = key
             px = rotate(turtle_pixels(t.g, frame, mode), d)
             raw = self.tk.PhotoImage(width=11, height=11)
+            k = self.sprite_tint
             for y, row in enumerate(px):
                 for x, col in enumerate(row):
                     if col:
-                        raw.put(col, to=(x, y))
+                        raw.put(tint_hex(col, k), to=(x, y))
             img = raw.zoom(scale) if scale > 1 else raw
             cache[key] = img
         return img
@@ -1662,16 +1823,17 @@ class App:
         self.bg_items = []
         bands = 10
         top = w.land_top + 8
+        k = self.bg_tint
         for i in range(bands):
             f = i / (bands - 1)
-            col = mix(WATER_DEEP, WATER_SHALLOW, f)
+            col = mix(tint_rgb(WATER_DEEP, k), tint_rgb(WATER_SHALLOW, k), f)
             y0, y1 = top * i / bands, top * (i + 1) / bands + 1
             self.bg_items.append(c.create_rectangle(0, y0, w.w, y1, fill=col, width=0, tags="bg"))
         xs = list(range(0, int(w.w) + 16, 16))
         wet = [v for x in xs for v in (x, w.shore(x))] + [w.w, w.h, 0, w.h]
         dry = [v for x in xs for v in (x, w.shore(x) + 9)] + [w.w, w.h, 0, w.h]
-        self.bg_items.append(c.create_polygon(*wet, fill=SAND_WET, outline="", tags="bg"))
-        self.bg_items.append(c.create_polygon(*dry, fill=SAND_DRY, outline="", tags="bg"))
+        self.bg_items.append(c.create_polygon(*wet, fill=tint_hex(SAND_WET, k), outline="", tags="bg"))
+        self.bg_items.append(c.create_polygon(*dry, fill=tint_hex(SAND_DRY, k), outline="", tags="bg"))
         rnd = random.Random(7)
         for _ in range(2):
             x, y = w.beach_point(rnd.uniform(w.w * 0.55, w.w - 30))
@@ -1679,7 +1841,8 @@ class App:
         for _ in range(14):     # 砂の粒
             x = rnd.uniform(0, w.w)
             y = rnd.uniform(w.shore(x) + 12, w.h - 2)
-            self.bg_items.append(c.create_rectangle(x, y, x + 2, y + 2, fill="#e3c98a", width=0, tags="bg"))
+            self.bg_items.append(c.create_rectangle(x, y, x + 2, y + 2, fill=tint_hex("#e3c98a", k),
+                                                    width=0, tags="bg"))
         self.order_dirty = True
         self.layout_ui()
 
@@ -1733,7 +1896,9 @@ class App:
             c.coords(wv["item"], *pts)
             if recolor:     # 出てくる時と消える時は海の色に近づける(フェード)
                 fade = math.sin(math.pi * min(1.0, max(0.0, f))) ** 0.7
-                c.itemconfigure(wv["item"], fill=mix(water_color(w, y), (255, 255, 255), 0.75 * fade))
+                k = self.bg_tint
+                c.itemconfigure(wv["item"], fill=mix(water_color(w, y, k), tint_rgb((255, 255, 255), k),
+                                                     0.75 * fade))
 
     # ---- 演出(息継ぎの波紋・クラゲのしぶき・サメのひと噛み)
     def add_fx(self, kind, x, y):
@@ -1947,6 +2112,17 @@ class App:
         if recolor:
             self.wave_t = 0.0
         self.update_waves(dt, recolor)
+        self.glit_t += dt
+        if self.glit_t > 0.3:
+            self.glit_t = 0.0
+            self.update_glitter()
+        self.light_t -= dt
+        if self.light_t <= 0:
+            self.light_t = 5.0
+            self.apply_light()
+        if w.phase_msg:
+            self.banner, self.banner_t = w.phase_msg, 4.0
+            w.phase_msg = None
         self.foam_t += dt
         if self.foam_t > 0.2:
             ph = w.time * 1.3
@@ -1968,9 +2144,9 @@ class App:
             nf = sum(t.sex == "F" for t in alive)
             herb = sum(t.herbivore for t in alive)
             c.itemconfigure(self.hud, text=(
-                "Turtles %d (F%d M%d, herbivore %d / omnivore %d)   Eggs %d   Max gen %d\n"
+                "%s %s   Turtles %d (F%d M%d, herb %d / omni %d)   Eggs %d   Gen %d\n"
                 "Seaweed %d   Jellyfish %d   Born %d   Died %d   Merged %d   Split %d%s"
-                % (len(alive), nf, len(alive) - nf, herb, len(alive) - herb, len(w.eggs), w.max_gen,
+                % (time.strftime("%H:%M", time.localtime(w.now_ts)), w.phase, len(alive), nf, len(alive) - nf, herb, len(alive) - herb, len(w.eggs), w.max_gen,
                    len(w.plants), len(w.jellies), w.births, w.deaths, w.merges, w.splits,
                    "   SHARK!" if w.shark else "")))
             for i, it in enumerate(self.log_items):

@@ -2,6 +2,7 @@ import os
 import random
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -35,6 +36,48 @@ class TestGenome(unittest.TestCase):
         self.assertEqual(up.lineage_name(0), "A")
         self.assertEqual(up.lineage_name(25), "Z")
         self.assertEqual(up.lineage_name(26), "AA")
+
+
+def at(month, day, hour, minute=0):
+    return time.mktime((2026, month, day, hour, minute, 0, 0, 0, -1))
+
+
+class TestDaylight(unittest.TestCase):
+    def test_phases(self):
+        self.assertEqual(up.daylight(at(6, 21, 12))[0], "Daytime")
+        self.assertEqual(up.daylight(at(6, 21, 0))[0], "Night")
+        self.assertEqual(up.daylight(at(6, 21, 4, 30))[0], "Sunrise")      # 夏は日の出が早い
+        self.assertEqual(up.daylight(at(12, 21, 4, 30))[0], "Night")       # 冬はまだ夜
+        self.assertEqual(up.daylight(at(12, 21, 16, 30))[0], "Sunset")
+        self.assertEqual(up.daylight(at(6, 21, 19, 30))[0], "Dusk")
+        self.assertGreater(up.daylight(at(6, 21, 0))[1], 0.95)
+        self.assertLess(up.daylight(at(6, 21, 12))[1], 0.01)
+
+    def test_night_sleep_and_nesting(self):
+        random.seed(8)
+        for hour, expect_sleep in ((1, True), (12, False)):
+            w = up.World()
+            w.clock = lambda: at(6, 21, hour)
+            w.update_daylight(w.clock(), log=False)
+            w.seed_plants()
+            ts = []
+            for i in range(10):
+                g = up.random_genome()
+                g["activity"] = 0.2
+                t = up.Turtle(g, 60 + i * 50, 120, age=up.ADULT_AGE, sex="F")
+                t.energy, t.fatigue, t.air = 1.0, 0.3, 999
+                ts.append(t)
+            ts[0].clutch = [{"g": up.random_genome(), "gen": 2, "par": "x"}]
+            w.turtles = ts
+            for _ in range(50):
+                w.step(0.2)
+            sleeping = sum(t.state == "sleep" for t in ts[1:])
+            if expect_sleep:
+                self.assertGreaterEqual(sleeping, 8)
+                self.assertIn(ts[0].state, ("nest", "lay"))
+            else:
+                self.assertEqual(sleeping, 0)
+                self.assertNotIn(ts[0].state, ("nest", "lay"))
 
 
 class TestWorld(unittest.TestCase):
