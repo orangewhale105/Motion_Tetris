@@ -50,8 +50,13 @@ class TestWorld(unittest.TestCase):
                 if t:
                     w.poke(t)
                 elif i % 200 == 0:
-                    w.add_worm(*w.cursor)
+                    w.drop_jelly(*w.cursor)
                 w.hover_info(*w.cursor)
+                for t in w.turtles:
+                    w.turtle_info(t)
+                tt = w.hit(*w.cursor, pad=40)
+                if tt:
+                    w.pet(tt, 70)
             w.step(0.2)
             self.assertLessEqual(w.population(), up.MAX_TURTLES + 3)
         self.assertGreater(w.births, 0)
@@ -59,6 +64,53 @@ class TestWorld(unittest.TestCase):
         self.assertGreater(len(w.turtles) + len(w.eggs), 0)
         for e in w.eggs:            # 卵は砂浜にある
             self.assertFalse(w.in_water(e.x, e.y))
+
+    def test_shark_eats_big_turtle(self):
+        random.seed(6)
+        w = up.World()
+        w.seed_plants()
+        big = up.Turtle(up.random_genome(), 300, 60, age=up.ADULT_AGE, extra=1)
+        small = up.Turtle(up.random_genome(), 320, 60, age=0)
+        w.turtles = [big, small]
+        self.assertGreaterEqual(big.scale, up.SHARK_PREY_SCALE)
+        w.shark_t = 0
+        w.step(0.1)
+        self.assertIsNotNone(w.shark)
+        w.shark.x, w.shark.y = 200, 60
+        fled = False
+        for _ in range(600):
+            big.x, big.y, big.energy = 300, 60, 1.0     # 逃げられないように固定
+            w.step(0.1)
+            fled = fled or small.state == "flee_shark"
+            if not big.alive:
+                break
+        self.assertFalse(big.alive)
+        self.assertEqual(big.cause, "a shark attack")
+        self.assertTrue(fled)
+
+    def test_breathe_and_pet(self):
+        random.seed(7)
+        w = up.World()
+        w.seed_plants()
+        t = up.Turtle(up.random_genome(), 200, 150, age=up.ADULT_AGE)
+        t.energy, t.fatigue, t.air = 1.0, 0.0, 0.0
+        w.turtles = [t]
+        w.step(0.1)
+        self.assertEqual(t.state, "breathe")
+        self.assertTrue(any(f[0] == "ripple" for f in w.fx))
+        for _ in range(40):
+            w.step(0.1)
+        self.assertGreater(t.air, 0)
+        t.g.update(cursor=1.0, care=1.0)
+        t.state = "swim"
+        w.pet(t, up.PET_STROKE)
+        self.assertEqual(t.state, "petted")
+        self.assertEqual(t.pets, 1)
+        t.g.update(cursor=0.0, care=1.0, temper=1.0)
+        t.state, t.joy = "swim", 0.0
+        for _ in range(5):
+            w.pet(t, up.PET_STROKE)
+        self.assertGreater(t.annoy, 0.4)
 
     def test_overpopulation_starves(self):
         """餌が足りないほど増えると、水草が減って餓死が起きる。"""
