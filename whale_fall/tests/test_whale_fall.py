@@ -48,7 +48,7 @@ class TestWorld(unittest.TestCase):
         for _ in range(int(wf.FALL_TIME / 0.5) + 2):
             w.step(0.5)
         self.assertFalse(w.whale.falling)
-        self.assertAlmostEqual(w.whale.y, w.floor(w.whale.x) - 12, delta=1)
+        self.assertAlmostEqual(w.whale.y, w.floor(w.whale.x) - wf.WHALE_OFF, delta=1)
         stages = set()
         first = w.whale
         for _ in range(6 * 24):

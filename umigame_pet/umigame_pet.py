@@ -47,7 +47,7 @@ import string
 import sys
 import time
 
-VERSION = "4.0.0"
+VERSION = "4.1.0"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
@@ -60,17 +60,19 @@ EGG_TIME = 1.5 * HOUR         # 卵がかえるまで(その後、夜を待っ�
 LAY_TIME = 4.0
 EGG_COST = 0.09               # 卵1個に母親が使う栄養
 HATCH_ENERGY = 0.45           # 子ガメの最初の栄養
-MAX_SCALE = 5                 # ドットの拡大率の上限(合体で大きくなる)
+MAX_SCALE = 6                 # ドットの拡大率の上限(合体で大きくなる)
 MERGE_KIN = 0.12              # この遺伝距離より近い個体どうしが合体候補
 CORPSE_TIME = 10.0            # 死骸が残る時間(その後、分解されて近くの水草の栄養になる)
 CORPSE_FERTILIZE = 0.25
 
-PLANT_START = 15
-PLANT_MAX = 36
-PLANT_GROWTH = 0.0006         # 水草のロジスティック成長率(1/秒)
+PLANT_START = 32
+N_MEADOWS = 5                 # 水草が群生する藻場の数
+MEADOW_R = (26, 40)
+PLANT_MAX = 50
+PLANT_GROWTH = 0.00045        # 水草のロジスティック成長率(1/秒)
 PLANT_MIN = 0.08              # 食べ尽くされても根が残る量
 PLANT_EDIBLE = 0.18           # これより少ない水草は食べられない(根からの再生を待つ)
-PLANT_BASE = 0.00004           # 根からの再生(1/秒)
+PLANT_BASE = 0.00003           # 根からの再生(1/秒)
 PLANT_BITE = 0.22
 PLANT_SPREAD = 1 / 120.0       # 茂った水草がすぐ隣に広がる確率(1/秒)→ 群生する
 JELLY_INTERVAL = 180.0
@@ -80,7 +82,7 @@ JELLY_ENERGY = 0.40
 
 SHARK_GAP = (2 * 3600, 4 * 3600)    # まれ(夕方〜夜は少し出やすい)
 SHARK_STAY = 70.0
-SHARK_PREY_SCALE = 3
+SHARK_PREY_SCALE = 4
 SHARK_SIGHT = 140.0
 TURTLE_ALERT = 170.0
 SHARK_ZONE = 0.6
@@ -363,14 +365,14 @@ class Turtle:
 
     @property
     def base_scale(self):
-        return 2 if self.g["size"] < 0.5 else 3
+        return 3 if self.g["size"] < 0.5 else 4
 
     @property
     def scale(self):
         if self.age < JUVENILE_AGE:
-            return 1
+            return 2                       # 子ガメでも見分けられる大きさ
         if not self.adult:
-            return max(1, self.base_scale - 1)
+            return self.base_scale - 1
         return min(MAX_SCALE, self.base_scale + self.extra)
 
     @property
@@ -612,6 +614,8 @@ class World:
         self.eggs = []
         self.plants = []
         self.reefs = []
+        self.meadows = []
+        self.meadow_changed = False
         self.schools = []
         self.fish = []
         self.jellies = []
@@ -698,15 +702,45 @@ class World:
             for _ in range(FISH_PER_SCHOOL):
                 self.fish.append(Fish(s, s.home.x + random.uniform(-20, 20), s.home.y + random.uniform(-15, 15)))
 
+    def seed_meadows(self):
+        """水草が群生する藻場(meadow)を決める。サンゴ・岩・ほかの藻場と重ならない所。"""
+        self.meadows = []
+        for _ in range(200):
+            if len(self.meadows) >= N_MEADOWS:
+                break
+            r = random.uniform(*MEADOW_R)
+            x = random.uniform(r + 10, self.w - r - 10)
+            y = random.uniform(self.land_top * 0.2 + r * 0.7, self.land_top * 0.92 - r * 0.7)
+            if any(math.hypot(rf.x - x, rf.y - y) < rf.radius + r + 6 for rf in self.reefs):
+                continue
+            if any(math.hypot(mx - x, my - y) < mr + r + 12 for mx, my, mr in self.meadows):
+                continue
+            self.meadows.append([x, y, r])
+
+    def meadow_at(self, x, y):
+        for m in self.meadows:
+            if (m[0] - x) ** 2 + ((m[1] - y) / 0.7) ** 2 < m[2] ** 2:
+                return m
+        return None
+
+    def _meadow_spot(self, m, plants):
+        """藻場の中の空いた場所(ほかの株と 11px 以上離す)。"""
+        for _ in range(12):
+            a, d = random.uniform(0, math.tau), m[2] * math.sqrt(random.random()) * 0.92
+            x, y = m[0] + math.cos(a) * d, m[1] + math.sin(a) * d * 0.7
+            if all((q.x - x) ** 2 + (q.y - y) ** 2 > 121 for q in plants):
+                return x, y
+        return None
+
     def seed_plants(self, n=PLANT_START):
-        """水草は数か所にかたまって(群生して)生える。"""
-        centers = [self.water_point(40) for _ in range(4)]
+        """水草は藻場にかたまって(群生して)生える。"""
+        if not getattr(self, "meadows", None):
+            self.seed_meadows()
         for i in range(n):
-            cx, cy = centers[i % len(centers)]
-            x = min(max(15, cx + random.uniform(-28, 28)), self.w - 15)
-            y = max(15, cy + random.uniform(-20, 20))
-            if self.in_water(x, y + 15) and not self._near_reef(x, y):
-                self.plants.append(Plant(x, y, random.uniform(0.3, 0.9)))
+            m = self.meadows[i % len(self.meadows)]
+            spot = self._meadow_spot(m, self.plants)
+            if spot:
+                self.plants.append(Plant(spot[0], spot[1], random.uniform(0.4, 0.95)))
 
     def _near_reef(self, x, y):
         return any(math.hypot(r.x - x, r.y - y) < r.radius for r in self.reefs)
@@ -780,14 +814,10 @@ class World:
             p.b = min(1.0, max(PLANT_MIN, p.b))
             if (p.b > 0.8 and len(self.plants) + len(new) < PLANT_MAX
                     and random.random() < min(1.0, dt * PLANT_SPREAD)):
-                a = random.uniform(0, math.tau)
-                r = random.uniform(9, 22)                 # すぐ隣に広がる → 群生
-                x = min(max(15, p.x + math.cos(a) * r), self.w - 15)
-                y = max(15, p.y + math.sin(a) * r)
-                near = [q for q in self.plants + new if (q.x - x) ** 2 + (q.y - y) ** 2 < 30 * 30]
-                if (self.in_water(x, y + 15) and not self._near_reef(x, y) and len(near) < 7
-                        and all((q.x - x) ** 2 + (q.y - y) ** 2 > 64 for q in near)):
-                    new.append(Plant(x, y, 0.1))
+                m = self.meadow_at(p.x, p.y)             # 同じ藻場の中に広がる → 群生
+                spot = self._meadow_spot(m, self.plants + new) if m else None
+                if spot:
+                    new.append(Plant(spot[0], spot[1], 0.1))
                     p.b -= 0.15
         self.plants += new
 
@@ -814,8 +844,13 @@ class World:
             self.fx.append(("splash", x, y))
 
     def drop_plant(self, x, y):
-        if len(self.plants) < PLANT_MAX + 6 and self.in_water(x, y + 10):
-            self.plants.append(Plant(x, y, 0.15))
+        """Shift+クリック: 水草を植える。藻場の外なら新しい藻場ができる。"""
+        if len(self.plants) >= PLANT_MAX + 6 or not self.in_water(x, y + 10):
+            return
+        if self.meadow_at(x, y) is None and len(self.meadows) < N_MEADOWS + 4:
+            self.meadows.append([x, y, MEADOW_R[0]])
+            self.meadow_changed = True
+        self.plants.append(Plant(x, y, 0.15))
 
     # ---- 波(大波・サーフィン)
     def _waves(self, dt):
@@ -1836,8 +1871,12 @@ class World:
                             "sleep and get cleaned here"]
                 return ["Rocks", "A quiet place for turtles to sleep at night"]
         for p in self.plants:
-            if math.hypot(p.x - x, p.y - y) < 4 + 3 * p.stage:
-                return ["Seaweed  %d%%" % round(p.b * 100), "Grows in patches; regrows when not overgrazed"]
+            if math.hypot(p.x - x, p.y - y) < 5 + 4 * p.stage:
+                return ["Seaweed  %d%%" % round(p.b * 100), "Grows in meadows; regrows when not overgrazed"]
+        m = self.meadow_at(x, y)
+        if m:
+            n = sum(1 for p in self.plants if self.meadow_at(p.x, p.y) is m)
+            return ["Seaweed meadow (%d plants)" % n, "Herbivores graze here in the morning and evening"]
         return None
 
     # ---- 留守中の時間経過(1分刻みでまとめて計算)
@@ -1940,7 +1979,7 @@ class World:
         return {"version": VERSION, "w": self.w, "h": self.h,
                 "turtles": [t.to_dict() for t in self.turtles if t.alive],
                 "eggs": [e.to_dict() for e in self.eggs],
-                "plants": [[p.x, p.y, p.b] for p in self.plants],
+                "plants": [[p.x, p.y, p.b] for p in self.plants], "meadows": self.meadows,
                 "reefs": [r.to_list() for r in self.reefs],
                 "births": self.births, "deaths": self.deaths, "laid": self.laid,
                 "merges": self.merges, "splits": self.splits, "max_gen": self.max_gen,
@@ -1964,7 +2003,11 @@ class World:
             if wd.in_water(e.x, e.y):
                 e.x, e.y = wd.beach_point(e.x)
         wd.plants = [Plant(*p) for p in d.get("plants", [])]
-        if not wd.plants:
+        wd.meadows = d.get("meadows") or []
+        if not wd.meadows:
+            wd.seed_meadows()
+            wd.plants = [p for p in wd.plants if wd.meadow_at(p.x, p.y)]   # 旧版: 藻場の外の水草は消える
+        if len(wd.plants) < 8:
             wd.seed_plants()
         for k in ("births", "deaths", "laid", "merges", "splits"):
             setattr(wd, k, d.get(k, 0))
@@ -1995,6 +2038,9 @@ class World:
             o.y = my(o.y)
         for v in self.visitors:
             v.y0 = my(v.y0)
+        for m in self.meadows:
+            m[0] *= sx
+            m[1] = my(m[1])
         for t in self.turtles:
             if t.nest:
                 t.nest = (t.nest[0] * sx, my(t.nest[1]))
@@ -2474,8 +2520,8 @@ class App:
         sp = tuple(0.45 + 0.55 * min(1.1, x) for x in bg)
         self.sprite_tint = sp
         pc = {"g": "#2fa86a", "G": "#7be8a2"}
-        self.plant_img = [self._img(PLANT_ART[0], {"g": "#4e9a72"}, 2, sp)] + \
-                         [self._img(a, pc, 2, sp) for a in PLANT_ART[1:]]
+        self.plant_img = [self._img(PLANT_ART[0], {"g": "#4e9a72"}, 3, sp)] + \
+                         [self._img(a, pc, 3, sp) for a in PLANT_ART[1:]]
         self.egg_img = self._img(EGG_ART, {"X": "#fffdf2"}, 2, sp)
         self.star_img = self._img(STAR_ART, {"X": "#ff8a4c"}, 2, bg)
         sc = {"B": "#5d7b8c", "b": "#c9d6dc", "E": "#111111", "F": "#4a6676"}
@@ -2592,6 +2638,11 @@ class App:
             y = rnd.uniform(w.shore(x) + 12, w.h - 2)
             self.bg_items.append(c.create_rectangle(x, y, x + 2, y + 2, fill=tint_hex("#e3c98a", k),
                                                     width=0, tags="bg"))
+        for mx, my, mr in w.meadows:            # 藻場の地面(緑がかった砂地)
+            base = mix(water_color(w, my, k), tint_rgb((70, 150, 110), k), 0.35)
+            self.reef_items.append(c.create_oval(mx - mr - 6, my - mr * 0.7 - 5, mx + mr + 6, my + mr * 0.7 + 5,
+                                                 fill=base, outline="", tags="meadow"))
+        w.meadow_changed = False
         for r in w.reefs:
             base = mix(water_color(w, r.y, k), (40, 60, 70), 0.18) if r.kind == "coral" else \
                 mix(water_color(w, r.y, k), (60, 70, 80), 0.12)
@@ -2803,6 +2854,8 @@ class App:
 
     def render(self, dt):
         c, w = self.canvas, self.world
+        if w.meadow_changed:
+            self.draw_background()
         self._sync("plant", w.plants, lambda p: self.plant_img[p.stage], move=False)
         self._sync("egg", w.eggs, lambda e: self.egg_img, move=False)
         self._sync("jelly", w.jellies, lambda o: self.jelly_img)
@@ -2896,7 +2949,7 @@ class App:
             self.draw_relations(dt)
 
         if self.order_dirty:
-            for tag in ("bg", "glit", "plant", "reef", "wave", "bg2", "egg", "fish", "jelly",
+            for tag in ("bg", "glit", "meadow", "plant", "reef", "wave", "bg2", "egg", "fish", "jelly",
                         "rel", "turtle", "visitor", "shark", "fx", "ui", "panel", "tip"):
                 c.tag_raise(tag)
             self.order_dirty = False

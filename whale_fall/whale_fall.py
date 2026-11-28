@@ -38,7 +38,7 @@ import string
 import sys
 import time
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100
@@ -693,14 +693,16 @@ class World:
             return
         if wh.falling:
             wh.fall_t += dt
-            fy = self.floor(wh.x) - 12
+            fy = self.floor(wh.x) - WHALE_OFF
             wh.y = self.surface + (fy - self.surface) * min(1.0, wh.fall_t / FALL_TIME)
+            if int(wh.fall_t / 4) != int((wh.fall_t - dt) / 4):
+                self.fx.append(("halo", wh.x, wh.y))          # やわらかな光に包まれて沈む
             if wh.fall_t >= FALL_TIME:
                 wh.falling, wh.y = False, fy
-                self.fx.append(("dust", wh.x, fy + 8))
+                self.fx.append(("dust", wh.x, fy + WHALE_OFF - 4))
                 self.event("whale", "The whale reached the seafloor! A whale fall community begins")
             return
-        wh.y = self.floor(wh.x) - 12
+        wh.y = self.floor(wh.x) - WHALE_OFF
         prev = wh.stage
         wh.age += dt
         wh.flesh = max(0.0, wh.flesh - dt / (18 * HOUR))
@@ -731,7 +733,7 @@ class World:
                 break
             src = None
             if wh and not wh.falling and wh.flesh > 0 and random.random() < 0.7:
-                src = (wh.x + random.uniform(-60, 60), wh.y - random.uniform(0, 20))
+                src = (wh.x + random.uniform(-85, 85), wh.y - random.uniform(-10, 25))
             landed = [f for f in self.foodfalls if f.landed]
             if landed and random.random() < 0.5:
                 f = random.choice(landed)
@@ -1182,7 +1184,7 @@ class World:
             else:
                 wh = self.whale
                 if wh and not wh.falling and random.random() < 0.5:
-                    t.bed = (wh.x + random.uniform(-55, 55), wh.y - random.uniform(6, 14))
+                    t.bed = (wh.x + random.uniform(-80, 80), wh.y - random.uniform(16, 26))
                 else:
                     t.bed = self.floor_point(t.x + random.uniform(-80, 80))
                 t.bed = (min(max(10, t.bed[0]), self.w - 10), t.bed[1] - t.radius * 0.6)
@@ -1209,7 +1211,7 @@ class World:
     def nest_point(self):
         wh = self.whale
         if wh and not wh.falling and random.random() < 0.6:
-            return wh.x + random.uniform(-50, 50), wh.y - 8
+            return wh.x + random.uniform(-70, 70), wh.y - 18
         if self.rocks:
             rx = random.choice(self.rocks)[0]
             return rx + random.uniform(-8, 8), self.floor(rx) - 14
@@ -1645,7 +1647,7 @@ class World:
                         "sleeper": ["Sleeper shark", "Slow, but it hunts dumbos near the floor!"],
                         "angler": ["Anglerfish", "Its glowing lure attracts curious dumbos..."]}[v.kind]
         wh = self.whale
-        if wh and abs(wh.x - x) < 70 and abs(wh.y - y) < 22:
+        if wh and abs(wh.x - x) < WHALE_HALF and abs(wh.y - y) < 32:
             if wh.falling:
                 return ["Falling whale", "Sinking to the seafloor (about %d m now)" % self.depth_m(wh.y)]
             return ["Whale fall - %s" % wh.stage, STAGE_INFO[wh.stage],
@@ -1695,7 +1697,7 @@ class World:
         self.update_daylight(self._off_ts, log=False)
         wh = self.whale
         if wh and wh.falling:
-            wh.falling, wh.y = False, self.floor(wh.x) - 12
+            wh.falling, wh.y = False, self.floor(wh.x) - WHALE_OFF
         self._whale_step(dt)
         crust_in = self.food_rate() * dt + len(self.crusts)
         self.crusts = []
@@ -1779,7 +1781,7 @@ class World:
         if w:
             wd.whale = Whale(w["x"], w["age"], w.get("falling", False), w.get("flesh", 0.0))
             wd.whale.worms, wd.whale.next_t = w.get("worms", 0.0), w.get("next")
-            wd.whale.y = wd.floor(wd.whale.x) - 12 if not wd.whale.falling else wd.surface
+            wd.whale.y = wd.floor(wd.whale.x) - WHALE_OFF if not wd.whale.falling else wd.surface
         wd.rocks = d.get("rocks") or []
         if not wd.rocks:
             wd.seed_rocks()
@@ -1807,7 +1809,7 @@ class World:
         self.w, self.h = w, h
         if self.whale:
             self.whale.x *= sx
-            self.whale.y = self.floor(self.whale.x) - 12 if not self.whale.falling else self.whale.y * sy
+            self.whale.y = self.floor(self.whale.x) - WHALE_OFF if not self.whale.falling else self.whale.y * sy
         for t in self.dumbos:
             for attr in ("nest", "bed"):
                 p = getattr(t, attr)
@@ -2073,37 +2075,89 @@ def dumbo_pixels(g, frame, mode):
     return out
 
 
-def whale_grid(falling):
-    """クジラ(横から、右が頭)の格子。S=皮 B=骨 f=肉。"""
-    W, H = 48, 14
+WHALE_W, WHALE_H = 64, 22
+WHALE_OFF = 26                # 海底からクジラの中心までの高さ(px)
+WHALE_HALF = 96               # クジラの横幅の半分(px)
+
+
+def _in_whale(x, y):
+    """丸い頭・やさしいからだ・持ち上がった尾びれ(絵本のクジラ)。"""
+    body = ((x - 34) / 24.0) ** 2 + ((y - 11) / 7.6) ** 2 < 1.0
+    head = (x - 50) ** 2 + ((y - 11.5) / 0.95) ** 2 < 9.5 ** 2
+    stock = 7 <= x <= 14 and abs(y - 11 + (14 - x) * 0.25) <= 1.2 + (x - 7) * 0.35
+    fluke = 1 <= x <= 8 and (abs(y - (9 - (8 - x) * 0.9)) <= 1.1 or abs(y - (11 + (8 - x) * 0.5)) <= 0.9)
+    return body or head or stock or fluke
+
+
+def whale_grid(falling=True):
+    """絵本のようなクジラ(横から、右が頭)。O=縁 S=背 W=おなか g=のどのひだ E=閉じた目と口 P=ほっぺ F=ひれ"""
+    W, H = WHALE_W, WHALE_H
     grid = [[None] * W for _ in range(H)]
     for y in range(H):
         for x in range(W):
-            body = ((x - 27) / 20.0) ** 2 + ((y - 7) / 5.6) ** 2 < 1.0
-            tail = 2 <= x <= 9 and abs(y - 7) <= 1 + max(0, 6 - x) * 0.9
-            if body or tail:
-                grid[y][x] = "S" if (y < 5 or falling) else "f"
+            if not _in_whale(x, y):
+                continue
+            edge = any(not (0 <= x + dx < W and 0 <= y + dy < H and _in_whale(x + dx, y + dy))
+                       for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            if edge:
+                grid[y][x] = "O"
+            elif y > 12 + (0 if x > 20 else 2):
+                grid[y][x] = "g" if 40 <= x <= 57 and x % 3 == 0 and y > 13 else "W"
+            else:
+                grid[y][x] = "S"
+    for x, y in ((51, 8), (52, 9), (53, 9), (54, 9), (55, 8)):        # やさしく閉じた目
+        grid[y][x] = "E"
+    for x, y in ((57, 14), (58, 14), (59, 13)):                      # ほほえむ口
+        grid[y][x] = "E"
+    for x, y in ((53, 11), (54, 11), (55, 11)):                      # ほっぺ
+        grid[y][x] = "P"
+    for x, y in ((42, 16), (43, 17), (44, 18), (45, 18), (44, 17), (43, 16), (42, 15)):   # 胸びれ
+        grid[y][x] = "F"
+    for x, y in ((48, 4), (49, 5), (50, 5), (49, 4)):                # 光(つや)
+        if grid[y][x] in ("S", "O"):
+            grid[y][x] = "L"
     return grid
 
 
+def whale_body_level(level):
+    """海底のクジラ: level(肉の残り 0〜1)に応じて、からだが少しずつ骨に変わっていく。"""
+    base = whale_grid()
+    out = [[None] * WHALE_W for _ in range(WHALE_H)]
+    for y in range(WHALE_H):
+        for x in range(WHALE_W):
+            c = base[y][x]
+            if c is None:
+                continue
+            n = 0.5 + 0.25 * math.sin(x * 0.37 + y * 0.9) + 0.25 * math.sin(x * 0.13 - y * 0.5 + 1.3)
+            face = c in ("E", "P") and level >= 0.2                   # 顔は最後まで穏やか
+            if n < level or face:
+                out[y][x] = "f" if (level - 0.12 < n < level and not face) else c
+    return out
+
+
 def skeleton_grid():
-    W, H = 48, 14
+    """骨(背骨・肋骨・丸い頭骨・尾の骨)。B=骨 b=骨の影"""
+    W, H = WHALE_W, WHALE_H
     g = [[None] * W for _ in range(H)]
-    for x in range(6, 44):                 # 背骨
-        g[8][x] = "B"
+    for x in range(4, 46):                 # 背骨
+        g[11][x] = "B"
         if x % 2 == 0:
-            g[7][x] = "B"
-    for x in range(16, 37, 3):             # 肋骨
-        for y in range(4, 12):
-            dx = int(round(math.sin((y - 4) / 8 * math.pi) * 1.5))
+            g[10][x] = "B"
+            g[12][x] = "b"
+    for x in range(18, 45, 3):             # 肋骨(弓なり)
+        for y in range(5, 18):
+            dx = int(round(math.sin((y - 5) / 12.0 * math.pi) * 2.0))
             if 0 <= x + dx < W:
-                g[y][x + dx] = "B"
-    for x in range(38, 47):                # 頭骨
-        for y in range(5, 12):
-            if x in (38, 46) or y in (5, 11) or (x + y) % 5 == 0:
-                g[y][x] = "B"
-    for x in range(2, 8):                  # 尾びれの骨
-        g[8][x] = "B" if x % 2 == 0 else None
+                g[y][x + dx] = "B" if y < 15 else "b"
+    for y in range(H):                     # 丸い頭骨
+        for x in range(42, 61):
+            d = math.hypot(x - 51, (y - 11.5) / 0.95)
+            if 7.4 < d < 8.8 or (y == 14 and 45 <= x <= 58):        # 頭骨のふちとあご
+                g[y][x] = "B" if y < 14 else "b"
+    for x, y in ((51, 8), (52, 9), (53, 9), (54, 9), (55, 8)):        # 目のくぼみ(やさしい形のまま)
+        g[y][x] = "b"
+    for x in range(1, 8):                  # 尾の骨
+        g[11][x] = "B" if x % 2 else "b"
     return g
 
 
@@ -2234,14 +2288,11 @@ class App:
         return img.zoom(scale)
 
     def make_whale_images(self):
-        self.whale_fall_img = self._grid_img(whale_grid(True), {"S": SKIN}, 3)
-        self.skeleton_img = self._grid_img(skeleton_grid(), {"B": BONE}, 3)
-        self.flesh_img = []
-        rnd = random.Random(3)
-        base = whale_grid(False)
-        for level in (1.0, 0.7, 0.45, 0.2):    # 肉の残り具合
-            g = [[(c if c and rnd.random() < level else None) for c in row] for row in base]
-            self.flesh_img.append(self._grid_img(g, {"S": SKIN, "f": FLESH}, 3))
+        cols = {"O": "#4f6d94", "S": "#7f9fc6", "W": "#dbe7f2", "g": "#b8cadc", "E": "#2c3e58",
+                "P": "#f4b4c4", "F": "#5f80a8", "L": "#c8dcf0", "f": FLESH}
+        self.whale_fall_img = self._grid_img(whale_grid(), cols, 3)
+        self.skeleton_img = self._grid_img(skeleton_grid(), {"B": BONE, "b": "#c9bf9f"}, 3)
+        self.flesh_img = [self._grid_img(whale_body_level(lv), cols, 3) for lv in (1.01, 0.72, 0.48, 0.24)]
 
     def dumbo_img(self, t, cache, key):
         img = cache.get(key)
@@ -2359,15 +2410,15 @@ class App:
                 rnd = random.Random(11)
                 if wh.stage_index >= 2:          # バクテリアマットと二枚貝
                     for i in range(10):
-                        x = wh.x + rnd.uniform(-66, 66)
-                        y = wh.y + rnd.uniform(10, 20)
+                        x = wh.x + rnd.uniform(-95, 85)
+                        y = wh.y + rnd.uniform(22, 30)
                         self.mat_items.append(c.create_rectangle(x, y, x + rnd.uniform(6, 14), y + 2,
                                                                  fill=rnd.choice(("#f4f0e0", "#f0e0a0")), width=0, tags="whale"))
                     for i in range(8):
-                        x = wh.x + rnd.uniform(-60, 60)
-                        y = wh.y + rnd.uniform(14, 20)
+                        x = wh.x + rnd.uniform(-90, 85)
+                        y = wh.y + rnd.uniform(24, 30)
                         self.mat_items.append(c.create_oval(x, y, x + 5, y + 3, fill="#2c2a3a", outline="#5a5870", tags="whale"))
-                slots = [(rnd.uniform(-60, 60), rnd.uniform(-14, 6)) for _ in range(30)]
+                slots = [(rnd.uniform(-85, 80), rnd.uniform(-18, 10)) for _ in range(30)]
                 for dx, dy in slots[:int(wh.worms)]:       # ホネクイハナムシ
                     self.worm_items.append(c.create_image(wh.x + dx, wh.y + dy, image=self.worm_img, tags="whale"))
             elif wh is not None:
@@ -2380,11 +2431,12 @@ class App:
     def add_fx(self, kind, x, y):
         if len(self.fx_items) > 24:
             return
-        col = {"glow": "#7ff3ff", "dust": "#7a6e62", "bite": "#ff3434", "snow": "#cfd8e8"}[kind]
-        n = 3 if kind == "glow" else 2
+        col = {"glow": "#7ff3ff", "dust": "#7a6e62", "bite": "#ff3434", "snow": "#cfd8e8",
+               "halo": "#4f7fa8"}[kind]
+        n = 3 if kind == "glow" else 1 if kind == "halo" else 2
         for k in range(n):
             it = self.canvas.create_oval(x, y, x, y, outline=col, width=2 if kind != "snow" else 1, tags="fx")
-            self.fx_items.append([it, kind, x, y, -0.25 * k, 1.0 if kind != "dust" else 2.0])
+            self.fx_items.append([it, kind, x, y, -0.25 * k, 2.0 if kind in ("dust", "halo") else 1.0])
         self.order_dirty = True
 
     def update_fx(self, dt):
@@ -2397,7 +2449,8 @@ class App:
                 c.delete(it)
                 continue
             if t >= 0:
-                r = 2 + t / life * {"glow": 20, "dust": 40, "bite": 22, "snow": 10}[kind]
+                r = (40 if kind == "halo" else 2) + t / life * {"glow": 20, "dust": 60, "bite": 22, "snow": 10,
+                                                                 "halo": 40}[kind]
                 c.coords(it, x - r, y - (r * 0.35 if kind == "dust" else r), x + r, y + (r * 0.2 if kind == "dust" else r))
             keep.append(f)
         self.fx_items = keep
