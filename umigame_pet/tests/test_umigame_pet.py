@@ -147,7 +147,7 @@ class TestWorld(unittest.TestCase):
             if not big.alive or any("narrowly escaped" in e[2] for e in w.events):
                 break
         escaped = any("narrowly escaped" in e[2] for e in w.events)
-        self.assertTrue((not big.alive and big.cause == "a shark attack") or escaped)
+        self.assertTrue((not big.alive and big.cause == "being eaten" and "shark" in big.killer.lower()) or escaped)
         self.assertTrue(fled)
 
     def test_breathe_and_pet(self):
@@ -524,6 +524,116 @@ class TestAnimations(unittest.TestCase):
         msg = [e[2] for e in w.events if "shore" in e[2]]
         self.assertIn("wipeout", seen)
         self.assertTrue(msg and "wiped out" in msg[-1])
+
+
+class TestLifeAndNight(unittest.TestCase):
+    def make(self, hour=12):
+        w = up.World()
+        w.clock = lambda: at(6, 21, hour, 0)
+        w.update_daylight(w.clock(), log=False)
+        w.seed_reefs()
+        w.seed_plants()
+        return w
+
+    def test_lucky_lives_about_a_week(self):
+        random.seed(40)
+        ts = [up.Turtle(up.random_genome(), 0, 0) for _ in range(2000)]
+        lucky = [t for t in ts if t.lucky]
+        self.assertTrue(150 < len(lucky) < 260)                  # 約1/10
+        real_days = [t.lifespan / up.TIME_SCALE / 86400 for t in lucky]
+        self.assertTrue(all(5 <= d <= 9 for d in real_days))   # 実時間で1週間ほど
+        normal = [t.lifespan / up.TIME_SCALE / 3600 for t in ts if not t.lucky]
+        self.assertTrue(all(d < 2 for d in normal))            # ふつうは実時間で1〜1.5時間
+
+    def test_named_turtle_life_story(self):
+        random.seed(41)
+        w = self.make()
+        mom = up.Turtle(up.random_genome(), 200, 150, age=up.ADULT_AGE, sex="F", lineage="A")
+        dad = up.Turtle(up.random_genome(), 210, 150, age=up.ADULT_AGE, sex="M", lineage="B")
+        mom.name = "Hana"
+        w.turtles = [mom, dad]
+        w.by_id = {mom.id: mom, dad.id: dad}
+        kid = up.Turtle(up.random_genome(), 220, 150)
+        w.turtles.append(kid)
+        w._born(kid, mom.id, dad.id)
+        grand = up.Turtle(up.random_genome(), 230, 150)
+        w.turtles.append(grand)
+        w._born(grand, kid.id, None)
+        mom.stats["plants"] = 12
+        self.assertTrue(any("Life so far" in l for l in w.turtle_info(mom)))
+        self.assertEqual({t.id for t in w.descendants_alive(mom.id)}, {kid.id, grand.id})
+        w._kill(mom, "being eaten", killer="Tiger shark #3")
+        self.assertEqual(len(w.memorials), 1)
+        text = "\n".join(w.memorials[0]["lines"])
+        self.assertIn("Hana", text)
+        self.assertIn("Tiger shark #3", text)
+        self.assertIn("Children: 1", text)
+        self.assertIn("Descendants alive now: 2", text)
+        self.assertIn("12 seaweed", text)
+        self.assertEqual(set(w.memorials[0]["heirs"]), {kid.id, grand.id})
+
+    def test_causes_of_death(self):
+        random.seed(42)
+        w = self.make(23)
+        t = up.Turtle(up.random_genome(), 100, 100, age=up.ADULT_AGE)
+        t.sick, t.energy = 1.0, 0.1
+        w.turtles = [t]
+        for _ in range(200):
+            if w._illness(t, 3600):
+                break
+            t.sick = 1.0
+        self.assertEqual(t.cause, "illness")
+        # スナガニが浜の子ガメを食べる(食べた相手が記録される)
+        w2 = self.make(23)
+        x = 300
+        baby = up.Turtle(up.random_genome(), x, w2.shore(x) + 20, age=0)
+        w2.turtles = [baby]
+        v = up.Visitor("ghost", x, baby.y, 0.0)
+        w2.visitors = [v]
+        for _ in range(300):
+            v.x, v.y, v.pause = baby.x, baby.y, 1.0
+            w2._move_ghost(v, 0.1)
+            if not baby.alive:
+                break
+        self.assertFalse(baby.alive)
+        self.assertTrue(baby.killer.startswith("Ghost crab #"))
+
+    def test_immigrant_balances_sex(self):
+        random.seed(43)
+        w = self.make()
+        w.turtles = [up.Turtle(up.random_genome(), 100 + i * 30, 120, age=up.ADULT_AGE, sex="M") for i in range(4)]
+        w.immigrant_t = 0.0
+        w._immigrants(0.1)
+        newcomer = w.turtles[-1]
+        self.assertEqual(newcomer.sex, "F")
+        self.assertEqual(newcomer.parents, "arrived from far away")
+        self.assertTrue(any("from far away" in e[2] for e in w.events))
+
+    def test_night_creatures(self):
+        random.seed(44)
+        w = self.make(23)
+        w.vis_t = {k: 0.0 for k in w.vis_t}
+        for _ in range(20):
+            w.step(0.1)
+            w.vis_t = {k: 0.0 for k in w.vis_t}
+        kinds = {v.kind for v in w.visitors}
+        self.assertTrue({"ghost", "octopus", "comb", "coconut", "hermit"} <= kinds)
+        self.assertGreaterEqual(sum(v.kind == "hermit" for v in w.visitors), 2)   # 夜はヤドカリがたくさん
+        self.assertNotIn("dolphin", kinds)
+        for kind in ("ghost", "octopus", "comb"):
+            v = next(v for v in w.visitors if v.kind == kind)
+            self.assertTrue(w.hover_info(v.x, v.y))
+
+    def test_red_sunset_and_moonlight(self):
+        sr = up.daylight(clock_at(6, 21, 4, 40))
+        ss = up.daylight(clock_at(6, 21, 18, 50))
+        self.assertEqual(sr[0], "Sunrise")
+        self.assertEqual(ss[0], "Sunset")
+        self.assertGreater(ss[2][0], 1.2)                          # 赤が強い
+        self.assertLess(ss[2][2], 0.45)
+        w = up.World()
+        w.phase = "Night"
+        self.assertGreater(up.sparkle_amount(w), 0.8)              # 月光できらめく
 
 
 class FakeBackend:
