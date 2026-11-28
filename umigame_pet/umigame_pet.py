@@ -51,7 +51,7 @@ import string
 import sys
 import time
 
-VERSION = "7.4.0"
+VERSION = "7.4.1"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
@@ -512,7 +512,7 @@ class Turtle:
         self.lucky = random.random() < LUCKY_RATE
         # 寿命(カメの時間): ふつうは 2.5〜6.5 日(平均 4〜5 日)、運のよい個体は 15〜30 日
         self.lucky_life = (random.uniform(15, 30) if self.lucky else
-                           (2.5 + 4.0 * genome.get("life", 0.5)) * random.uniform(0.85, 1.15)) * DAY
+                           (2.5 + 4.0 * genome.get("life", 0.5)) * random.uniform(0.6, 1.4)) * DAY
         self.groggy = 0.0         # 寝ぼけている時間(実時間)
         self.mate_with = None
         self.dash_t = random.uniform(0, 8)
@@ -1371,10 +1371,13 @@ class World:
         pop = len(alive) + len(self.eggs)
         if pop >= MAX_TURTLES - 1:
             return
-        if not force and random.random() >= IMMIGRANT_RATE * (2.0 if pop < 3 else 1.0) * bdt / DAY / (pop + 1):
-            return
         nf = sum(t.sex == "F" for t in alive)
         nm = len(alive) - nf
+        boost = 2.0 if pop < 3 else 1.0
+        if alive and (nf == 0 or nm == 0) and pop < POP_TARGET:
+            boost = 6.0                                          # オスだけ・メスだけ: すぐに相手がやって来る
+        if not force and random.random() >= IMMIGRANT_RATE * boost * bdt / DAY / (pop + 1):
+            return
         sex = "F" if nf < nm else "M" if nm < nf else random.choice("FM")   # 少ない方の性
         if offline:
             x, y = self.water_point(30)
@@ -2580,7 +2583,7 @@ class World:
             self._mate_new, self.mates_today = False, 0
             n = getattr(self, "_pop", POP_TARGET)                 # 卵も数える
             if n < POP_TARGET - 3:
-                self.mate_quota = 2                               # 少ないときは 2 ペア
+                self.mate_quota = 3 if n < POP_TARGET - 4 else 2  # 少ないときは 2〜3 ペア
             elif n < POP_TARGET + 1:
                 self.mate_quota = random.choice((1, 1, 2))
             elif n < COLONY_SOFT:
@@ -2679,7 +2682,9 @@ class World:
         """1回に産む卵の数。カメが少ないほど多く、多いほど少ない(ホメオスタシス)。"""
         base = 2 + int(mom.g["fertility"] * 2.99)                 # 2〜4個
         n = getattr(self, "_pop", POP_TARGET)
-        if n < POP_TARGET - 3:
+        if n < POP_TARGET - 4:
+            base += 3
+        elif n < POP_TARGET - 3:
             base += 2
         elif n > POP_TARGET + 2:
             base -= 1
