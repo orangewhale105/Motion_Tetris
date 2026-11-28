@@ -186,11 +186,12 @@ class TestWorld(unittest.TestCase):
             x, y = w.water_point()
             t = up.Turtle(up.random_genome(), x, y, sex="FM"[i % 2], lineage="A")
             t.age = up.ADULT_AGE
-            t.energy, t.fatigue = 0.3, 0.0
+            t.energy, t.fatigue = 0.2, 0.0
             w.turtles.append(t)
+        w._emigrate = lambda *a, **k: None           # 旅立ちなし(餓死を見る)
         b0 = sum(p.b for p in w.plants)
         low = b0
-        for _ in range(int(0.5 * 3600 / 0.5)):        # 実時間30分 = カメの12時間
+        for _ in range(int(1.0 * 3600 / 0.5)):        # 実時間1時間
             w.step(0.5)
             low = min(low, sum(p.b for p in w.plants))
         self.assertLess(low, b0 * 0.6)                 # 食べ尽くされて減る
@@ -450,7 +451,7 @@ class TestSeaweedAndVisitors(unittest.TestCase):
 
 class TestAnimations(unittest.TestCase):
     def test_plant_disappears_when_eaten(self):
-        """クラゲと同じく、水草も食べたら消える(もぐもぐしてから)。"""
+        """水草は1ドットずつ、のんびりかじる(株は残る)。"""
         random.seed(30)
         w = up.World()
         w.clock = lambda: at(6, 21, 8, 0)
@@ -464,17 +465,19 @@ class TestAnimations(unittest.TestCase):
         t.energy, t.air, t.fatigue = 0.2, 999, 0
         w.turtles, w.plants = [t], [p]
         chew, fx = set(), set()
-        for _ in range(300):
+        levels = set()
+        for _ in range(600):
             w.step(0.1)
             t.air = 999
             fx.update(f[0] for f in w.fx)
+            levels.add(up.plant_level(p.b))
             if t.eat_cd > 0:
                 chew.add(int(t.anim / 0.14) % 2)
             w.fx.clear()
-            if p not in w.plants and t.eat_cd <= 0:
-                break
-        self.assertNotIn(p, w.plants)
-        self.assertGreater(t.energy, 0.9)
+        self.assertIn(p, w.plants)                     # 1ドットずつかじる。株は残る(Ver 7.3)
+        self.assertGreaterEqual(p.b, up.NIBBLE_FLOOR - 0.01)
+        self.assertGreater(len(levels), 3)             # 少しずつ小さくなる
+        self.assertGreater(t.energy, 0.4)
         self.assertEqual(chew, {0, 1})                 # 口を開け閉め
         self.assertIn("leaf", fx)
         self.assertNotIn("gulp", fx)                   # 緑の輪は出さない
@@ -1006,10 +1009,10 @@ class TestV7(unittest.TestCase):
         w = self.make(1)
         t = up.Turtle(up.random_genome(), 300, 150, age=up.ADULT_AGE)
         w.turtles = [t]
-        w.plants = [up.Plant(320, 160, 0.5, w.new_meadow(320, 160))]
+        w.plants = [up.Plant(320, 160, 0.34, w.new_meadow(320, 160))]
         t.energy = 0.9
         self.assertIsNone(w._choose_food(t))
-        t.energy = 0.3
+        t.energy = 0.2
         self.assertIsNotNone(w._choose_food(t))
         t.energy, t.state, t.fatigue = 0.15, "sleep", 1.0
         w._update_turtle(t, 0.1)

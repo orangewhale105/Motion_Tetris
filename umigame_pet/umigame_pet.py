@@ -51,7 +51,7 @@ import string
 import sys
 import time
 
-VERSION = "7.2.1"
+VERSION = "7.3.0"
 
 # ---------------------------------------------------------------- 定数
 TICK_MS = 100                 # 画面更新の間隔(10fps)。最小化中は 1秒ごとに計算だけ
@@ -92,8 +92,11 @@ PLANT_MIN = 0.08              # 食べ尽くされても根が残る量
 PLANT_EDIBLE = 0.55           # これより小さい株は食べない(半分の大きさから広がれるので、藻場が再生できる)
 MEADOW_MAX = 12               # ひとつの藻場の株の数の上限(海じゅうが1つの藻場にならないように)
 PLANT_BASE = 0.00003 * ECO     # 根からの再生(1/秒)
+CALM = 0.4                   # おなかの減り方(Ver 7.3 で約4割に。食事はたまに、のんびり)
+PLANT_NIBBLE = 0.11           # ひとくちで食べる量(水草の絵の1段ぶん。1ドットずつ、のんびり)
+NIBBLE_FLOOR = 0.25           # ここまでしか食べない(根と葉が残り、すぐまた育つ)
 PLANT_BITE = 0.12             # ひとくち(小さくして、少しずつ減るのが見えるように)
-EAT_TIME = 1.2                # ひとくちにかかる時間(もぐもぐ)
+EAT_TIME = 2.0                # ひとくちにかかる時間(もぐもぐ)
 PLANT_SCARS = 3              # 根元まで食べられるのがこの回数続くと枯れる(食べ過ぎで藻場が消える)
 PLANT_HEAL = 20 * 60         # これだけ食べられなければ、傷が1つ治る
 SPROUT_GAP = (2 * 3600, 4 * 3600)  # ひとりでに芽が出る間隔(カメの時間)。食べられなければ育って新しい藻場になる
@@ -143,6 +146,7 @@ LUCKY_RATE = 0.1              # 運のよい個体の割合(実時間で1週間�
 IMMIGRANT_GAP = (45 * 60, 90 * 60)   # (旧版の互換用。今は IMMIGRANT_RATE を使う)
 IMMIGRANT_RATE = 1.0          # 外来ガメが来る頻度: カメの1日あたり 1/(今いる数+1) 回
 FOOD_TO_BREED = 1.0           # 1匹あたりの食べられる海藻がこれより少ないと、恋をしない(増えすぎを防ぐ)
+COLONY_SOFT = 16              # これより多いと恋をせず、旅立つカメも出る(のんびり眺められる数)
 EMIGRATE_FOOD = 1.1           # 1匹あたりの食べられる海藻がこれを下回ると、旅立つカメが出る
 EMIGRATE_RATE = 0.06          # 旅立ちの起こりやすさ(カメの1時間・1匹あたり、最大)
 EMIGRATE_MIN = 6              # これより少ないときは旅立たない
@@ -552,7 +556,7 @@ class Turtle:
     def metab(self):
         g = self.g
         return (0.00012 + 0.00015 * g["appetite"] + 0.00008 * g["speed"]
-                + 0.00005 * g["activity"]) * (1 + 0.15 * self.extra) * (1.0 if self.adult else 0.6) * ECO
+                + 0.00005 * g["activity"]) * (1 + 0.15 * self.extra) * (1.0 if self.adult else 0.6) * ECO * CALM
 
     @property
     def eat_below(self):
@@ -673,8 +677,8 @@ class Plant:
 
 
 def reef_spread(kind, n):
-    """岩場・サンゴ礁の広がり(Ver 7.2 で大きく。カメが隠れられるくらい)。"""
-    return (20 + 4.2 * n) if kind == "coral" else (16 + 5.0 * n)
+    """岩場・サンゴ礁の広がり。岩場は 4 匹ほどが並んで休めるくらい広い(Ver 7.3)。"""
+    return (20 + 4.2 * n) if kind == "coral" else (30 + 7.0 * n)
 
 
 class Reef:
@@ -714,8 +718,8 @@ class Reef:
         self.radius = max(30.0, far + 20)
 
     def bed_point(self):
-        a = random.uniform(0, math.tau)                    # 岩やサンゴのすき間にもぐりこむ
-        d = random.uniform(self.radius * 0.1, self.radius * 0.6)
+        a = random.uniform(0, math.tau)                    # 岩やサンゴの上やまわり
+        d = random.uniform(self.radius * 0.15, self.radius * 0.85)
         return self.x + math.cos(a) * d, self.y + math.sin(a) * d * 0.8
 
     def to_list(self):
@@ -1853,8 +1857,8 @@ class World:
             say("starve", "Many turtles are starving... (%d starved since yesterday)" % (self.deaths_starve - s0))
 
     def edible_food(self):
-        """食べられる大きさの水草の量(グラフと「海藻が減った」の知らせに使う)。"""
-        return sum(p.b for p in self.plants if p.b >= PLANT_EDIBLE)
+        """食べられる水草の量(グラフと「海藻が減った」の知らせに使う)。根元の分は数えない。"""
+        return sum(p.b - NIBBLE_FLOOR for p in self.plants if p.b > NIBBLE_FLOOR) * 1.6
 
     def _record(self, dt):
         self.hist_t += dt
@@ -1976,9 +1980,10 @@ class World:
         if len(alive) < EMIGRATE_MIN:
             return
         food_per = self.edible_food() / len(alive)
-        if food_per >= EMIGRATE_FOOD:
+        crowd = max(0.0, (len(alive) - COLONY_SOFT) / 6.0)         # 混みすぎても旅立つ(画面がにぎやかすぎないように)
+        if food_per >= EMIGRATE_FOOD and crowd <= 0:
             return
-        p = EMIGRATE_RATE * (1 - food_per / EMIGRATE_FOOD) * bdt / HOUR * len(alive)
+        p = EMIGRATE_RATE * (max(0.0, 1 - food_per / EMIGRATE_FOOD) + crowd) * bdt / HOUR * len(alive)
         if random.random() >= p:
             return
         cand = [t for t in alive if t.state in ("swim", "food", "court", "watch", "idle") or offline]
@@ -1998,7 +2003,8 @@ class World:
             if t.name:
                 self.memorials.append(self.life_story(t, departed=True))
         names = ", ".join(self.tag(t) for t in group)
-        self.event("depart", "The seaweed is scarce... %s set off for a faraway sea, never to return" % names)
+        why = "The seaweed is scarce..." if food_per < EMIGRATE_FOOD else "The sea is getting crowded..."
+        self.event("depart", "%s %s set off for a faraway sea, never to return" % (why, names))
 
     def _crisis(self, bdt):
         """絶滅の危機: 平均 21 日に1度、嵐・赤潮・伝染病・海藻の不作のどれかが起こる。
@@ -2181,7 +2187,7 @@ class World:
         t.air -= dt * (0.4 if sleeping else 1.0)
         t.groggy = max(0.0, t.groggy - dt)
         if sleeping or t.state == "lay":               # 眠っている・じっと産卵している間は少しだけ減る
-            t.energy -= t.metab * bdt * (SLEEP_METAB if sleeping else 0.25)
+            t.energy -= t.metab * bdt * SLEEP_METAB
         else:                                           # 動くほどおなかが減る
             spd = min(1.5, math.hypot(t.vx, t.vy) / max(1.0, t.max_speed))
             t.energy -= t.metab * bdt * (0.5 + 0.9 * spd)
@@ -2484,7 +2490,9 @@ class World:
         # 株を丸ごと食べるので、ちゃんとお腹がすいてから。夕方は寝る前にしっかり食べる
         hungry_line = max(0.45, min(0.92 if 15 <= self.hour < 20 else 0.7, t.eat_below + self.appetite_shift()))
         # ↑ 夜でも小食でも、半分を切ったらきちんと餌を探す(以前は夜に探し始めるのが遅すぎて餓死していた)
-        if t.clutch and self.nest_time() and (t.energy > 0.35 or prev == "nest"):   # 腹ぺこならまず食べる
+        if t.clutch:
+            hungry_line = max(hungry_line, 0.8)              # 卵を抱えたメスは、上陸の前にしっかり食べる
+        if t.clutch and self.nest_time() and (t.energy > 0.5 or prev == "nest"):   # おなかを満たしてから上陸
             t.state = "nest"                                  # 産卵は夜(ウミガメの習性)
             if t.nest is None:
                 t.nest = self.beach_point()
@@ -2496,9 +2504,7 @@ class World:
             if prev == "to_bed" and t.bed:
                 t.state = "to_bed"
             elif self.reefs and (t.adult or random.random() < 0.7):   # 岩場やサンゴのそばで眠る
-                r = min(self.reefs, key=lambda r: (r.x - t.x) ** 2 + (r.y - t.y) ** 2 *
-                        (0.7 if r.kind == "rock" else 1.0))
-                t.bed, t.bed_kind = r.bed_point(), r.kind
+                t.bed, t.bed_kind = self.choose_bed(t)
                 t.state = "to_bed"
             else:
                 t.bed, t.bed_kind = None, None
@@ -2533,6 +2539,25 @@ class World:
         if t.energy < 0.2 and random.random() < dt / 6:
             t.say("sweat")
 
+    def choose_bed(self, t):
+        """寝床: 近くて空いている岩場(サンゴも)。ほかのカメの寝床とは離れた場所を選ぶ(押し合わない)。"""
+        beds = [o.bed for o in self.turtles if o is not t and o.alive and o.bed and o.state in ("sleep", "to_bed")]
+
+        def crowd(r):
+            return sum(1 for b in beds if math.hypot(b[0] - r.x, b[1] - r.y) < r.radius + 10)
+        r = min(self.reefs, key=lambda r: math.hypot(r.x - t.x, r.y - t.y) * (0.8 if r.kind == "rock" else 1.0)
+                + 120 * max(0, crowd(r) - (4 if r.kind == "rock" else 2)))
+        best, bd = None, -1.0
+        for _ in range(14):
+            p = r.bed_point()
+            if not self.in_water(*p):
+                continue
+            d = min((math.hypot(b[0] - p[0], b[1] - p[1]) for b in beds), default=999.0)
+            d = min(d, 2 * min((math.hypot(q.x - p[0], q.y - p[1]) for q in self.plants), default=999.0))  # 海藻の上では寝ない
+            if d > bd:
+                best, bd = p, d
+        return (best or r.bed_point()), r.kind
+
     def _free_school(self):
         free = [s for s in self.schools if s.cleaning is None]
         return random.choice(free) if free else None
@@ -2554,7 +2579,7 @@ class World:
                 and t.adult and t.energy > 0.5
                 and self.mating_open()
                 and t.mate_cd <= 0 and not t.clutch and self.in_water(t.x, t.y)
-                and self._pop < MAX_TURTLES - 1 and getattr(self, "_food_per", 9.0) > FOOD_TO_BREED)
+                and self._pop < COLONY_SOFT and getattr(self, "_food_per", 9.0) > FOOD_TO_BREED)
 
     def _find_partner(self, t):
         best, bd = None, 450.0
@@ -2575,10 +2600,10 @@ class World:
     def edible_line(self, t):
         """おなかがすくほど、小さな株でも食べる。"""
         if t.energy < 0.25:
-            return 0.4
+            return NIBBLE_FLOOR + 0.03
         if t.energy < 0.4:
-            return 0.47
-        return PLANT_EDIBLE
+            return NIBBLE_FLOOR + 0.08
+        return NIBBLE_FLOOR + 0.15
 
     def _choose_food(self, t):
         best, bs = None, 1e18
@@ -2605,16 +2630,22 @@ class World:
         a = math.atan2(f.y - t.y, f.x - t.x)              # 食べ物の方を向く
         t.dir = (1 if math.cos(a) > 0 else 3) if abs(math.cos(a)) > abs(math.sin(a)) else (2 if math.sin(a) > 0 else 0)
         if f.kind == "plant":
-            if f.b < self.edible_line(t):
+            if f.b < NIBBLE_FLOOR + 0.01:
                 t.food = None
                 return
-            f.gone = True                                   # クラゲと同じく、食べたら消える
-            t.stats["plants"] += 1
-            self.plants = [q for q in self.plants if q is not f]
-            self.fx += [("leaf", f.x, f.y), ("leaf", f.x, f.y)]
-            t.energy += f.b * (1.5 if t.herbivore else 0.9)
-            self.eaten_plants += 1
-            self.meadow_t = min(self.meadow_t, 0.5)
+            bite = min(PLANT_NIBBLE, f.b - NIBBLE_FLOOR)     # 1ドットずつ、のんびりかじる(株は残る)
+            if bite <= 0.005:
+                t.food = None
+                return
+            f.b -= bite
+            f.bitten = self.time
+            if random.random() < 0.5:
+                self.fx.append(("leaf", f.x, f.y))
+            t.energy += bite * (1.5 if t.herbivore else 0.9)
+            self.eaten_plants += bite
+            t.stats["plants"] += bite
+            if f.b - NIBBLE_FLOOR < 0.01 or t.energy > 0.95:
+                t.food = None                              # 次の株へ(または、おなかいっぱい)
         else:
             f.gone = True
             t.energy += JELLY_ENERGY
@@ -2789,7 +2820,7 @@ class World:
                         dx, dy, mul = -dx, -dy, 0.3
                     if t.eat_cd <= 0:
                         self._eat(t, f)
-                elif d < reach:
+                elif d < reach or (d < reach + 14 and math.hypot(t.vx, t.vy) < 12):   # 寝ているカメがじゃまでも、首をのばして
                     self._eat(t, f)
                     mul = 0.0
                 else:
@@ -2955,12 +2986,15 @@ class World:
                 if d2 > r * r:
                     continue
                 d = math.sqrt(d2) or 0.01
-                if not (a.state == "sleep" and b.state == "sleep"):
-                    push = (r - d) * 0.25
-                    a.x -= dx / d * push
-                    a.y -= dy / d * push
-                    b.x += dx / d * push
-                    b.y += dy / d * push
+                sa, sb = a.state == "sleep", b.state == "sleep"
+                if not (sa and sb):                          # 眠っているカメは押されない(起きている方がよける)
+                    push = (r - d) * 0.25 * (1.6 if sa or sb else 1)
+                    if not sa:
+                        a.x -= dx / d * push
+                        a.y -= dy / d * push
+                    if not sb:
+                        b.x += dx / d * push
+                        b.y += dy / d * push
                 if ((a.state == "court" and a.target is b) or (b.state == "court" and b.target is a)) \
                         and a.sex != b.sex and self._can_mate(a) and self._can_mate(b):
                     self._start_mating(a, b)
@@ -3286,9 +3320,10 @@ class World:
                 p = max(self.plants, key=lambda p: p.b, default=None)
                 if p is None or p.b < self.edible_line(t):
                     break
-                self.plants.remove(p)                       # 株を丸ごと食べる
-                t.energy += p.b * (1.5 if t.herbivore else 0.9)
-                t.stats["plants"] += 1
+                bite = p.b - NIBBLE_FLOOR                   # 根元は残す
+                p.b = NIBBLE_FLOOR
+                t.energy += bite * (1.5 if t.herbivore else 0.9)
+                t.stats["plants"] += bite
             t.energy = min(1.0, t.energy)
             if t.energy <= 0:
                 self._kill(t, "starvation")
@@ -3358,9 +3393,11 @@ class World:
         wd = cls(d.get("w", 700), d.get("h", 440))
         if d.get("reefs"):
             wd.reefs = [Reef(*r) for r in d["reefs"]]
-            if tuple(int(x) for x in str(d.get("version", "0")).split(".")[:2]) < (7, 2):
-                for rf in wd.reefs:                                  # 旧版: 部品の間隔を広げる
-                    rf.parts = [(p[0] * 1.35, p[1] * 1.35, p[2], p[3]) for p in rf.parts]
+            ver = tuple(int(x) for x in str(d.get("version", "0")).split(".")[:2] if x.isdigit())
+            for rf in wd.reefs:                                      # 旧版: 部品の間隔を広げる
+                k = (1.35 if ver < (7, 2) else 1.0) * (1.5 if ver < (7, 3) and rf.kind == "rock" else 1.0)
+                if k != 1.0:
+                    rf.parts = [(p[0] * k, p[1] * k, p[2], p[3]) for p in rf.parts]
                     rf.recenter()
             if sum(r.kind == "rock" for r in wd.reefs) < 5:        # 旧版: 岩場を 5 か所に
                 lt = wd.land_top
@@ -4577,7 +4614,7 @@ class App:
                     cols = dict(zip("Xxo", ROCK_COLORS))
                 else:
                     cols = dict(zip("Xxo", CORAL_COLORS[ci]))
-                self.reef_img[(piece, ci)] = self._img(art, cols, 4, sp)     # 大きく(Ver 7.2)
+                self.reef_img[(piece, ci)] = self._img(art, cols, 5 if piece.startswith("rock") else 4, sp)
         for ent in getattr(self, "items", {}).values():
             ent[3].clear()
             ent[4] = None
@@ -5279,17 +5316,10 @@ class App:
         if self.show_rel:
             self.draw_relations(dt)
 
-        hidden = {t.id for t in w.turtles if t.state in ("sleep", "nap") and t.bed_kind
-                  and t.id in self.items and w._near_reef(t.x, t.y)}       # 岩やサンゴのすき間で眠る
-        if hidden != getattr(self, "hidden", None):
-            self.hidden = hidden
-            self.order_dirty = True
-        if self.order_dirty:
+        if self.order_dirty:                                          # カメはいつも一番手前(見やすく)
             for tag in ("bg", "glit", "meadow", "plant", "reef", "wave", "bg2", "egg", "fish", "jelly",
-                        "rel", "turtle", "fishtop", "visitor", "shark", "fx", "ui", "panel", "tip", "memo"):
+                        "rel", "visitor", "shark", "turtle", "fishtop", "fx", "ui", "panel", "tip", "memo"):
                 c.tag_raise(tag)
-            for tid in self.hidden:                                   # 隠れているカメは岩・サンゴの下に
-                c.tag_lower(self.items[tid][0], "reef")
             self.order_dirty = False
 
         self.hud_t -= dt
